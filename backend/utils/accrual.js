@@ -17,10 +17,34 @@ async function accrueAndUpgrade(user) {
   const now = Date.now();
   let changed = false;
 
-  // Daily salary — only credited on days the user actually analyzed at least once?
-  // Spec says the salary is a *basis*, not automatic. We implement opt-in: credit
-  // the user's daily salary if they've submitted any analyst row that day.
-  // For simplicity in production: skip auto-salary (admin controls via adjustment).
+  // Daily salary accrual. Credited per whole elapsed day since lastSalaryAt.
+  // Guards: email-verified, positive balance at or above the current level's
+  // minBalance (so a $0 user earns nothing). Clamp elapsed days to [0, 7] so an
+  // inactive user cannot farm a large backlog in one hit.
+  {
+    const salLvl = levelFor(user.balance);
+    const lastSal = user.lastSalaryAt ? new Date(user.lastSalaryAt).getTime() : null;
+    if (lastSal === null) {
+      // First-ever accrual: set the clock, credit nothing.
+      user.lastSalaryAt = new Date(now);
+      changed = true;
+    } else {
+      const rawDays = Math.floor((now - lastSal) / DAY_MS);
+      const days = Math.min(Math.max(rawDays, 0), 7);
+      if (days > 0) {
+        if (user.emailVerified && user.balance > 0 && user.balance >= salLvl.minBalance) {
+          const payout = +(days * salLvl.dailySalary).toFixed(2);
+          user.balance = +(user.balance + payout).toFixed(2);
+          user.totalEarned = +(user.totalEarned + payout).toFixed(2);
+          await Transaction.create({ user: user._id, type: "salary", amount: payout, note: `${days}d × $${salLvl.dailySalary} @ ${salLvl.name}` });
+        }
+        // Advance the clock whether or not we credited, forfeiting any excess
+        // beyond the 7-day clamp so a long gap cannot be farmed across calls.
+        user.lastSalaryAt = rawDays > 7 ? new Date(now) : new Date(lastSal + days * DAY_MS);
+        changed = true;
+      }
+    }
+  }
 
   // Weekly investment payout
   const inv = user.investment;

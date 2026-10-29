@@ -13,6 +13,7 @@ const UserSchema = new mongoose.Schema({
   level:        { type: String, default: "beginner" },
   dailySalary:  { type: Number, default: 230 },
   totalEarned:  { type: Number, default: 0 },
+  lastSalaryAt: { type: Date },                   // last daily-salary accrual timestamp
 
   mentor:       { type: mongoose.Schema.Types.ObjectId, ref: "Mentor", default: null },
 
