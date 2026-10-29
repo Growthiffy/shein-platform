@@ -77,9 +77,19 @@ export default function Invest() {
             ) : (
               <>
                 <h3 className="font-display text-2xl text-gold">Start Investment</h3>
-                <Input label="Tier Level (1-7)" value={tier} onChange={v => setTier(Number(v))} type="number" />
+                <label className="block mt-2">
+                  <span className="text-xs tracking-widest text-cream/60">TIER</span>
+                  <select value={tier} onChange={e => setTier(Number(e.target.value))} className="w-full mt-1 bg-black/40 border border-gold/20 rounded-lg px-3 py-2 outline-none focus:border-gold">
+                    {tiers.map(t => <option key={t.level} value={t.level}>{t.level} · {t.name} · {t.weeklyPct}%/wk · min ${t.min}</option>)}
+                  </select>
+                </label>
                 <Input label="Amount (USD)"     value={amount} onChange={setAmount} type="number" />
-                <Input label="Lock weeks"       value={lock} onChange={v => setLock(Number(v))} type="number" />
+                <label className="block mt-2">
+                  <span className="text-xs tracking-widest text-cream/60">LOCK WEEKS</span>
+                  <select value={lock} onChange={e => setLock(Number(e.target.value))} className="w-full mt-1 bg-black/40 border border-gold/20 rounded-lg px-3 py-2 outline-none focus:border-gold">
+                    {[4, 8, 12, 24, 52].map(w => <option key={w} value={w}>{w} weeks</option>)}
+                  </select>
+                </label>
                 {err && <div className="text-red-400 text-sm mt-2">{err}</div>}
                 <button className="btn-gold mt-3 w-full" onClick={start}>LOCK & START</button>
               </>

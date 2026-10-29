@@ -2,11 +2,12 @@
 import { useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 import { api } from "@/lib/api";
+import { LEVELS, PROFIT_OVERRIDES } from "@/lib/constants";
 
 export default function Users() {
   const [items, setItems] = useState([]);
   const [sel, setSel] = useState(null);
-  async function load() { setItems((await api("/api/admin/users")).items); }
+  async function load() { const d = await api("/api/admin/users"); setItems(d.items); if (sel) setSel(d.items.find(u => u._id === sel._id) || null); }
   useEffect(() => { load(); }, []);
 
   async function save(patch) {
@@ -15,7 +16,18 @@ export default function Users() {
   }
   async function force(profitPct) {
     await api(`/api/admin/users/${sel._id}/force-product`, { method: "POST", body: { profitPct } });
-    await load(); alert("Next product profit % forced to " + profitPct);
+    await load(); alert("Next product profit % forced to " + profitPct + "%");
+  }
+  async function resetCycle() {
+    if (!confirm("Reset analyst cycle to 0 for this user?")) return;
+    await api(`/api/admin/users/${sel._id}/reset-cycle`, { method: "POST" });
+    await load();
+  }
+  async function adjust(amount) {
+    const n = Number(prompt("Amount to adjust (positive to credit, negative to debit):", amount));
+    if (!n && n !== 0) return;
+    await api(`/api/admin/users/${sel._id}/adjust-balance`, { method: "POST", body: { amount: n, note: "admin adjust" } });
+    await load();
   }
 
   return (
@@ -24,12 +36,12 @@ export default function Users() {
       <div className="grid grid-cols-3 gap-4">
         <div className="card overflow-x-auto col-span-2">
           <table>
-            <thead><tr className="text-cream/60"><th>Email</th><th>Username</th><th>Balance</th><th>Level</th><th>Verified</th></tr></thead>
+            <thead><tr className="text-cream/60"><th>Email</th><th>Username</th><th>Balance</th><th>Level</th><th>Cycle</th><th>Verified</th></tr></thead>
             <tbody>
               {items.map(u => (
                 <tr key={u._id} className="cursor-pointer hover:bg-white/5" onClick={() => setSel(u)}>
-                  <td>{u.email}</td><td>{u.username || "-"}</td><td>${u.balance?.toFixed(2)}</td>
-                  <td>{u.level}</td><td>{u.emailVerified ? "✓" : "—"}</td>
+                  <td>{u.email}</td><td>{u.username || "-"}</td><td>${(u.balance ?? 0).toFixed(2)}</td>
+                  <td>{u.level}</td><td>{u.analyst?.cycleCount ?? 0}/27</td><td>{u.emailVerified ? "✓" : "—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -37,22 +49,33 @@ export default function Users() {
         </div>
         <div className="card p-4">
           {!sel ? <div className="text-cream/60">Select a user.</div> : (
-            <div className="space-y-2">
-              <div className="text-gold">{sel.email}</div>
-              <Field label="Balance" value={sel.balance} onSave={v => save({ balance: Number(v) })} />
-              <Field label="Daily Salary" value={sel.dailySalary} onSave={v => save({ dailySalary: Number(v) })} />
-              <Field label="Level" value={sel.level} onSave={v => save({ level: v })} />
+            <div className="space-y-3">
+              <div className="text-gold break-all">{sel.email}</div>
+
+              <NumField label="Balance $" value={sel.balance} onSave={v => save({ balance: Number(v) })} />
+              <NumField label="Daily Salary $" value={sel.dailySalary} onSave={v => save({ dailySalary: Number(v) })} />
+
+              <SelectField label="Level" value={sel.level} options={LEVELS.map(l => ({ v: l.key, t: l.name }))} onSave={v => save({ level: v })} />
+
               <div>
                 <div className="text-xs text-cream/60 mt-2">Force next product profit %</div>
-                <div className="flex gap-2">
-                  <button className="btn-ghost" onClick={() => force(-5)}>-5%</button>
-                  <button className="btn-ghost" onClick={() => force(0)}>0%</button>
-                  <button className="btn-ghost" onClick={() => force(23)}>23%</button>
-                  <button className="btn-ghost" onClick={() => force(35)}>35%</button>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {PROFIT_OVERRIDES.map(p => (
+                    <button key={p} className="btn-ghost text-xs" onClick={() => force(p)}>{p}%</button>
+                  ))}
                 </div>
               </div>
+
+              <div className="flex gap-2 pt-2">
+                <button className="btn-ghost text-xs" onClick={resetCycle}>Reset Cycle</button>
+                <button className="btn-ghost text-xs" onClick={() => adjust(0)}>Adjust Balance</button>
+              </div>
+
               <label className="flex items-center gap-2 mt-2 text-sm">
                 <input type="checkbox" checked={!!sel.isAdmin} onChange={e => save({ isAdmin: e.target.checked })} /> admin
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={!!sel.emailVerified} onChange={e => save({ emailVerified: e.target.checked })} /> email verified
               </label>
             </div>
           )}
@@ -62,13 +85,27 @@ export default function Users() {
   );
 }
 
-function Field({ label, value, onSave }) {
+function NumField({ label, value, onSave }) {
   const [v, setV] = useState(value ?? "");
   useEffect(() => setV(value ?? ""), [value]);
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs text-cream/60 w-28">{label}</span>
-      <input value={v} onChange={e => setV(e.target.value)} className="flex-1" />
+      <input type="number" value={v} onChange={e => setV(e.target.value)} className="flex-1" />
+      <button className="btn" onClick={() => onSave(v)}>Save</button>
+    </div>
+  );
+}
+
+function SelectField({ label, value, options, onSave }) {
+  const [v, setV] = useState(value ?? options[0]?.v);
+  useEffect(() => setV(value ?? options[0]?.v), [value]);
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-cream/60 w-28">{label}</span>
+      <select value={v} onChange={e => setV(e.target.value)} className="flex-1">
+        {options.map(o => <option key={o.v} value={o.v}>{o.t}</option>)}
+      </select>
       <button className="btn" onClick={() => onSave(v)}>Save</button>
     </div>
   );

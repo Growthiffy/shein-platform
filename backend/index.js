@@ -22,6 +22,27 @@ app.use(cors({ origin: corsCheck, credentials: true }));
 
 app.get("/health", (req, res) => res.json({ ok: true, service: "shein-backend" }));
 
+app.get("/", (req, res) => {
+  res.type("html").send(`<!doctype html><html><head><title>Shein API</title><style>
+  body{font-family:system-ui;background:#0b0b0d;color:#f6f1e7;max-width:720px;margin:40px auto;padding:0 20px;line-height:1.6}
+  h1{color:#e9d08b;font-family:Georgia,serif}
+  code{background:#1a1a1d;padding:2px 6px;border-radius:4px;color:#e9d08b}
+  a{color:#e9d08b}</style></head><body>
+  <h1>Shein API</h1>
+  <p>This is the backend API. Use the apps:</p>
+  <ul>
+    <li>Member site: <a href="https://shein-customer.vercel.app">shein-customer.vercel.app</a></li>
+    <li>Admin: <a href="https://shein-dashboard-two.vercel.app">shein-dashboard-two.vercel.app</a></li>
+  </ul>
+  <p>Endpoints under <code>/api/*</code> (auth, me, analyst, wallet, invest, mentor, community, admin). Health: <code>/health</code>.</p>
+  </body></html>`);
+});
+
+app.get("/api", (req, res) => res.json({
+  service: "shein-backend", version: "1.0.0",
+  endpoints: ["/api/auth/{signup,verify,login,resend}", "/api/me", "/api/analyst/{next,submit,history}", "/api/wallet/{deposit-addresses,deposit,withdraw,history}", "/api/invest/{tiers,start,release}", "/api/mentor", "/api/community/:group", "/api/admin/*"],
+}));
+
 // Ensure Mongo is connected before any /api/* route runs. Cached across invocations.
 app.use("/api", async (req, res, next) => {
   try { await connectDB(); next(); } catch (e) { next(e); }

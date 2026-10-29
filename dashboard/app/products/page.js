@@ -2,28 +2,39 @@
 import { useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 import { api } from "@/lib/api";
+import { BRANDS, PRODUCT_NAMES } from "@/lib/constants";
 
 export default function Products() {
   const [items, setItems] = useState([]);
-  const [form, setForm] = useState({ brand: "", name: "", originalPrice: "", image: "", isLatest: false });
+  const [form, setForm] = useState({ brand: BRANDS[0], name: PRODUCT_NAMES[0], originalPrice: "", image: "", isLatest: false });
   async function load() { setItems((await api("/api/admin/products")).items); }
   useEffect(() => { load(); }, []);
   async function create() {
+    if (!form.originalPrice) return alert("Set original price");
     await api("/api/admin/products", { method: "POST", body: { ...form, originalPrice: Number(form.originalPrice) } });
-    setForm({ brand: "", name: "", originalPrice: "", image: "", isLatest: false });
+    setForm({ brand: BRANDS[0], name: PRODUCT_NAMES[0], originalPrice: "", image: "", isLatest: false });
     await load();
   }
   async function toggle(p) { await api(`/api/admin/products/${p._id}`, { method: "PATCH", body: { active: !p.active } }); await load(); }
+  async function toggleLatest(p) { await api(`/api/admin/products/${p._id}`, { method: "PATCH", body: { isLatest: !p.isLatest } }); await load(); }
   async function del(p) { if (confirm("Delete?")) { await api(`/api/admin/products/${p._id}`, { method: "DELETE" }); await load(); } }
 
   return (
     <Shell>
       <h1 className="text-2xl text-gold mb-4">Products</h1>
       <div className="card p-4 mb-4 grid grid-cols-6 gap-2 items-end">
-        <L label="Brand"><input value={form.brand} onChange={e => setForm({ ...form, brand: e.target.value })} /></L>
-        <L label="Name"><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></L>
-        <L label="Original $"><input type="number" value={form.originalPrice} onChange={e => setForm({ ...form, originalPrice: e.target.value })} /></L>
-        <L label="Image URL"><input value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} /></L>
+        <L label="Brand">
+          <select value={form.brand} onChange={e => setForm({ ...form, brand: e.target.value })} className="w-full">
+            {BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
+        </L>
+        <L label="Name">
+          <select value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="w-full">
+            {PRODUCT_NAMES.map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </L>
+        <L label="Original $"><input type="number" value={form.originalPrice} onChange={e => setForm({ ...form, originalPrice: e.target.value })} className="w-full" /></L>
+        <L label="Image URL"><input value={form.image} onChange={e => setForm({ ...form, image: e.target.value })} className="w-full" /></L>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isLatest} onChange={e => setForm({ ...form, isLatest: e.target.checked })} /> latest</label>
         <button className="btn" onClick={create}>Add</button>
       </div>
@@ -34,7 +45,7 @@ export default function Products() {
             {items.map(p => (
               <tr key={p._id}>
                 <td>{p.brand}</td><td>{p.name}</td><td>${p.originalPrice}</td>
-                <td>{p.isLatest ? "★" : ""}</td>
+                <td><button className="btn-ghost" onClick={() => toggleLatest(p)}>{p.isLatest ? "★ latest" : "normal"}</button></td>
                 <td><button className="btn-ghost" onClick={() => toggle(p)}>{p.active ? "on" : "off"}</button></td>
                 <td><button className="btn-ghost" onClick={() => del(p)}>Delete</button></td>
               </tr>
@@ -45,4 +56,4 @@ export default function Products() {
     </Shell>
   );
 }
-function L({ label, children }) { return <label className="text-sm"><div className="text-xs text-cream/60">{label}</div>{children}</label>; }
+function L({ label, children }) { return <label className="text-sm block"><div className="text-xs text-cream/60">{label}</div>{children}</label>; }

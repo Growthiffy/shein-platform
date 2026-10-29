@@ -3,12 +3,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api, getToken } from "@/lib/api";
 import { useRouter } from "next/navigation";
+import { CHAINS } from "@/lib/constants";
 
 export default function Withdraw() {
   const r = useRouter();
   const [me, setMe] = useState(null);
   const [amount, setAmount] = useState("");
-  const [chain, setChain] = useState("USDT TRC20");
+  const [chain, setChain] = useState(CHAINS[0]);
   const [address, setAddress] = useState("");
   const [label, setLabel] = useState("");
   const [history, setHistory] = useState([]);
@@ -59,7 +60,12 @@ export default function Withdraw() {
           </div>
 
           <h4 className="mt-5 text-cream/80 text-xs tracking-widest">ADD / UPDATE WALLET</h4>
-          <Input label="Chain" value={chain} onChange={setChain} />
+          <label className="block mt-3">
+            <span className="text-xs tracking-widest text-cream/60">CHAIN</span>
+            <select value={chain} onChange={e => setChain(e.target.value)} className="w-full mt-1 bg-black/40 border border-gold/20 rounded-lg px-3 py-2 outline-none focus:border-gold">
+              {CHAINS.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </label>
           <Input label="Address" value={address} onChange={setAddress} />
           <Input label="Label (optional)" value={label} onChange={setLabel} />
           <button className="mt-3 px-4 py-2 rounded-full border border-gold/40" onClick={saveWallet}>SAVE WALLET</button>
