@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+html, body { background:#0b0b0d; color:#f6f1e7; }
+body { font-family: Inter, system-ui, sans-serif; }
+
+/* Luxury accents */
+.gold-grad { background: linear-gradient(135deg,#c9a24a 0%,#e9d08b 50%,#c9a24a 100%); }
+.text-gold { color:#e9d08b; }
+.btn-gold {
+  background: linear-gradient(135deg,#c9a24a,#e9d08b);
+  color:#0b0b0d; font-weight:600; letter-spacing:.04em;
+  padding:.75rem 1.5rem; border-radius: 9999px;
+  box-shadow: 0 10px 30px -10px rgba(201,162,74,.6);
+}
+.btn-gold:hover { filter: brightness(1.05); }
+.card { background: rgba(255,255,255,.03); border: 1px solid rgba(233,208,139,.15); border-radius: 1rem; }
+
+/* kenburns */
+@keyframes kenburns { 0%{transform:scale(1.0) translate(0,0);} 100%{transform:scale(1.15) translate(-2%,-2%);} }
+.kb { animation: kenburns 18s ease-in-out infinite alternate; }
+
+/* fade carousel */
+@keyframes fadein { from{opacity:0} to{opacity:1} }
+.fadein { animation: fadein .6s ease-out both; }
