@@ -62,6 +62,7 @@ app.use("/api/wallet",   require("./routes/wallet"));
 app.use("/api/invest",   require("./routes/invest"));
 app.use("/api/mentor",   require("./routes/mentor"));
 app.use("/api/community",require("./routes/community"));
+app.use("/api/support",  require("./routes/support"));
 app.use("/api/admin",    require("./routes/admin"));
 
 app.use((err, req, res, next) => {

@@ -30,6 +30,12 @@ export default function Users() {
     await api(`/api/admin/users/${sel._id}/adjust-balance`, { method: "POST", body: { amount: n, note: "admin adjust" } });
     await load();
   }
+  async function notify() {
+    const text = prompt("Notification message to send to this user:");
+    if (!text?.trim()) return;
+    await api(`/api/admin/users/${sel._id}/notify`, { method: "POST", body: { text: text.trim(), type: "info" } });
+    alert("Notification sent.");
+  }
 
   return (
     <Shell>
@@ -54,9 +60,16 @@ export default function Users() {
           {!sel ? <div className="text-cream/60">Select a user.</div> : (
             <div className="space-y-3">
               <div className="text-gold break-all">{sel.email}</div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-cream/50">
+                {sel.accountNumber != null && <span>Member #{sel.accountNumber}</span>}
+                {sel.referralCode && <span>Code <b className="text-gold font-mono">{sel.referralCode}</b></span>}
+                <span>Credit {sel.creditScore ?? 100}%</span>
+              </div>
 
               <NumField label="Balance $" value={sel.balance} onSave={v => save({ balance: Number(v) })} />
               <NumField label="Daily Salary $" value={sel.dailySalary} onSave={v => save({ dailySalary: Number(v) })} />
+              <NumField label="Credit Score" value={sel.creditScore ?? 100} onSave={v => save({ creditScore: Number(v) })} />
+              <TextField label="Phone" value={sel.phone || ""} onSave={v => save({ phone: v })} />
 
               <SelectField label="Level" value={sel.level} options={LEVELS.map(l => ({ v: l.key, t: l.name }))} onSave={v => save({ level: v })} />
 
@@ -91,9 +104,10 @@ export default function Users() {
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex flex-wrap gap-2 pt-2">
                 <button className="btn-ghost text-xs" onClick={resetCycle}>Reset Cycle</button>
                 <button className="btn-ghost text-xs" onClick={() => adjust(0)}>Adjust Balance</button>
+                <button className="btn-ghost text-xs" onClick={notify}>Send Notification</button>
               </div>
 
               <label className="flex items-center gap-2 mt-2 text-sm">
@@ -117,6 +131,18 @@ function NumField({ label, value, onSave }) {
     <div className="flex items-center gap-2">
       <span className="text-xs text-cream/60 w-28">{label}</span>
       <input type="number" value={v} onChange={e => setV(e.target.value)} className="flex-1" />
+      <button className="btn" onClick={() => onSave(v)}>Save</button>
+    </div>
+  );
+}
+
+function TextField({ label, value, onSave }) {
+  const [v, setV] = useState(value ?? "");
+  useEffect(() => setV(value ?? ""), [value]);
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-cream/60 w-28">{label}</span>
+      <input value={v} onChange={e => setV(e.target.value)} className="flex-1" />
       <button className="btn" onClick={() => onSave(v)}>Save</button>
     </div>
   );

@@ -6,12 +6,18 @@ import { api, setToken } from "@/lib/api";
 export default function AuthPage() {
   const [mode, setMode] = useState("choose"); // choose | signin | signup | verify
   const [devCode, setDevCode] = useState("");
+  const [ref, setRef] = useState("");
+  useEffect(() => {
+    try { const r = new URLSearchParams(window.location.search).get("ref"); if (r) { setRef(r.toUpperCase()); setMode("signup"); } } catch {}
+  }, []);
   return (
-    <main className="min-h-screen flex items-center justify-center bg-ink px-4" style={{backgroundImage:"radial-gradient(ellipse at top, rgba(201,162,74,.08), transparent 60%)"}}>
+    <main className="min-h-screen flex flex-col items-center justify-center bg-ink px-4 py-10" style={{backgroundImage:"radial-gradient(ellipse at top, rgba(201,162,74,.1), transparent 60%)"}}>
+      <div className="font-display text-4xl tracking-[0.3em] text-gold mb-1">SHEIN</div>
+      <div className="text-[11px] tracking-[0.35em] text-cream/50 mb-8">LUXURY · ANALYSIS · GROWTH</div>
       <div className="card w-full max-w-md p-8">
         {mode === "choose" && <Choose onPick={setMode} />}
         {mode === "signin" && <SignIn onSwitch={() => setMode("signup")} onNeedsVerify={() => setMode("verify")} />}
-        {mode === "signup" && <SignUp onNeedsVerify={(c) => { setDevCode(c || ""); setMode("verify"); }} onSwitch={() => setMode("signin")} />}
+        {mode === "signup" && <SignUp ref0={ref} onNeedsVerify={(c) => { setDevCode(c || ""); setMode("verify"); }} onSwitch={() => setMode("signin")} />}
         {mode === "verify" && <Verify devCode={devCode} />}
       </div>
     </main>
@@ -62,9 +68,10 @@ function SignIn({ onSwitch, onNeedsVerify }) {
   );
 }
 
-function SignUp({ onNeedsVerify, onSwitch }) {
+function SignUp({ onNeedsVerify, onSwitch, ref0 }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [ref, setRef] = useState(ref0 || "");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   async function submit(e) {
@@ -72,7 +79,7 @@ function SignUp({ onNeedsVerify, onSwitch }) {
     if (password.length < 8) { setErr("password must be at least 8 characters"); return; }
     setBusy(true);
     try {
-      const d = await api("/api/auth/signup", { method: "POST", body: { email, password } });
+      const d = await api("/api/auth/signup", { method: "POST", body: { email, password, ref: ref.trim() || undefined } });
       sessionStorage.setItem("shein_pending_email", email.trim().toLowerCase());
       onNeedsVerify(d.devCode);
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
@@ -80,8 +87,10 @@ function SignUp({ onNeedsVerify, onSwitch }) {
   return (
     <form onSubmit={submit} className="space-y-4">
       <h2 className="font-display text-2xl text-gold text-center">Create Account</h2>
+      {ref0 && <div className="text-center text-sm text-emerald-400">Invited with code {ref0} — $20 reward on verify.</div>}
       <Input label="Real email address" value={email} onChange={setEmail} type="email" />
       <Input label="Password (min 8 chars)" value={password} onChange={setPassword} type="password" />
+      <Input label="Referral code (optional)" value={ref} onChange={setRef} required={false} />
       {err && <div className="text-red-400 text-sm">{err}</div>}
       <button className="btn-gold w-full" disabled={busy}>{busy ? "..." : "SEND CODE"}</button>
       <div className="text-center text-sm text-cream/60">
@@ -140,12 +149,12 @@ function Verify({ devCode }) {
   );
 }
 
-function Input({ label, value, onChange, type = "text" }) {
+function Input({ label, value, onChange, type = "text", required = true }) {
   return (
     <label className="block">
-      <span className="block text-xs text-cream/60 mb-1 tracking-widest uppercase">{label}</span>
+      <span className="label mb-1 block">{label}</span>
       <input type={type} value={value} onChange={e => onChange(e.target.value)}
-        className="w-full bg-black/40 border border-gold/20 rounded-lg px-4 py-3 text-cream focus:border-gold outline-none" required />
+        className="field" required={required} />
     </label>
   );
 }

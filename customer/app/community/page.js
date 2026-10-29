@@ -1,35 +1,30 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { api, getToken } from "@/lib/api";
-import { useRouter } from "next/navigation";
+import AppShell, { useMe } from "@/components/AppShell";
+import { api } from "@/lib/api";
+import { Send } from "lucide-react";
 
 const GROUPS = [{ id: "daily", label: "Daily Analysts" }, { id: "invest", label: "Investors" }];
 
-export default function Community() {
-  const r = useRouter();
-  const [group, setGroup] = useState("daily");
+export default function CommunityPage() { return <AppShell><Body /></AppShell>; }
+
+function Body() {
+  const { me } = useMe();
+  const access = me.communityAccess || { daily: true, invest: true };
+  const visible = GROUPS.filter(g => access[g.id] !== false);
+  const [group, setGroup] = useState(visible[0]?.id || "daily");
   const [items, setItems] = useState([]);
   const [text, setText] = useState("");
-  const [access, setAccess] = useState({ daily: true, invest: true });
   const [blocked, setBlocked] = useState(false);
   const box = useRef(null);
 
   async function load(g) {
     try {
-      const d = await api(`/api/community/${g}`);
-      setItems(d.items); setBlocked(false);
+      const d = await api(`/api/community/${g}`); setItems(d.items); setBlocked(false);
       setTimeout(() => box.current?.scrollTo(0, box.current.scrollHeight), 50);
-    } catch (e) {
-      if (String(e.message).includes("access")) { setBlocked(true); setItems([]); }
-    }
+    } catch (e) { if (String(e.message).includes("access")) { setBlocked(true); setItems([]); } }
   }
   useEffect(() => {
-    if (!getToken()) { r.push("/auth"); return; }
-    api("/api/me").then(d => setAccess(d.user?.communityAccess || { daily: true, invest: true })).catch(() => {});
-  }, []);
-  useEffect(() => {
-    if (!getToken()) return;
     load(group);
     const t = setInterval(() => load(group), 7000);
     return () => clearInterval(t);
@@ -41,43 +36,40 @@ export default function Community() {
   }
 
   return (
-    <main className="min-h-screen bg-ink text-cream">
-      <header className="px-6 py-4 border-b border-gold/10 flex justify-between">
-        <Link href="/dashboard" className="font-display text-xl text-gold">← Shein</Link>
+    <div className="page">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-3xl md:text-4xl text-gold">Community</h1>
         <div className="flex gap-2">
-          {GROUPS.filter(g => access[g.id] !== false).map(g => (
+          {visible.map(g => (
             <button key={g.id} onClick={() => setGroup(g.id)}
-              className={`px-3 py-1 rounded-full text-sm ${g.id === group ? "gold-grad text-black" : "border border-gold/30 text-cream/70"}`}>
+              className={`px-4 py-1.5 rounded-full text-sm transition ${g.id === group ? "gold-grad text-black font-semibold" : "border border-gold/30 text-cream/70 hover:text-gold"}`}>
               {g.label}
             </button>
           ))}
         </div>
-      </header>
+      </div>
 
-      <section className="max-w-3xl mx-auto px-6 py-6">
-        <div ref={box} className="card h-[65vh] overflow-y-auto p-4 space-y-3">
-          {items.map(m => (
-            <div key={m._id} className="flex gap-3">
-              <div className="w-9 h-9 rounded-full bg-gold/20 flex items-center justify-center font-display text-gold">
-                {(m.authorName || "?")[0]?.toUpperCase()}
-              </div>
-              <div>
-                <div className="text-xs text-cream/50">{m.authorName || "member"} {(m.authorType === "staff" || m.authorType === "ai" || m.authorType === "persona") && <span className="text-gold">• staff</span>}</div>
-                <div className="text-cream">{m.text}</div>
-              </div>
+      <div ref={box} className="card mt-5 h-[62vh] overflow-y-auto p-4 space-y-3">
+        {items.map(m => (
+          <div key={m._id} className="flex gap-3">
+            <div className="h-9 w-9 shrink-0 rounded-full bg-gold/15 grid place-items-center font-display text-gold overflow-hidden">
+              {m.authorAvatar ? <img src={m.authorAvatar} alt="" className="h-full w-full object-cover" /> : (m.authorName || "?")[0]?.toUpperCase()}
             </div>
-          ))}
-          {blocked && <div className="text-cream/50 text-sm">You do not have access to this group.</div>}
-          {!blocked && !items.length && <div className="text-cream/50 text-sm">No messages yet.</div>}
-        </div>
-        <div className="flex gap-2 mt-3">
-          <input value={text} onChange={e => setText(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && send()}
-            placeholder="Write a message…" disabled={blocked}
-            className="flex-1 bg-black/40 border border-gold/20 rounded-full px-4 py-3 outline-none focus:border-gold disabled:opacity-40" />
-          <button className="btn-gold" onClick={send} disabled={blocked}>SEND</button>
-        </div>
-      </section>
-    </main>
+            <div>
+              <div className="text-xs text-cream/50">{m.authorName || "member"} {(m.authorType === "staff" || m.authorType === "ai" || m.authorType === "persona") && <span className="text-gold">• staff</span>}</div>
+              <div className="text-cream">{m.text}</div>
+            </div>
+          </div>
+        ))}
+        {blocked && <div className="text-cream/50 text-sm">You do not have access to this group.</div>}
+        {!blocked && !items.length && <div className="text-cream/50 text-sm">No messages yet.</div>}
+      </div>
+
+      <div className="flex gap-2 mt-3">
+        <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === "Enter" && send()}
+          placeholder="Write a message…" disabled={blocked} className="field rounded-full flex-1 disabled:opacity-40" />
+        <button className="btn-gold" onClick={send} disabled={blocked}><Send size={16} /></button>
+      </div>
+    </div>
   );
 }
