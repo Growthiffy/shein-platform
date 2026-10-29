@@ -31,11 +31,11 @@ export default function Admins() {
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="card overflow-x-auto lg:col-span-2">
           <table>
-            <thead><tr><th>Email</th><th>Username</th><th>Since</th><th></th></tr></thead>
+            <thead><tr><th>Username</th><th>Email</th><th>Since</th><th></th></tr></thead>
             <tbody>
               {items.map(a => (
                 <tr key={a._id}>
-                  <td>{a.email}</td><td>{a.username || "—"}</td>
+                  <td>{a.username || "—"}</td><td>{a.email || "—"}</td>
                   <td>{new Date(a.createdAt).toLocaleDateString()}</td>
                   <td><button className="btn-ghost text-xs" onClick={() => remove(a._id)}><Trash2 size={13} /></button></td>
                 </tr>
@@ -46,8 +46,8 @@ export default function Admins() {
         </div>
         <div className="card p-4 space-y-3 h-max">
           <div className="text-gold">Add operator</div>
-          <label className="text-sm block">Email<input className="w-full mt-1" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></label>
-          <label className="text-sm block">Username<input className="w-full mt-1" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} /></label>
+          <label className="text-sm block">Username *<input className="w-full mt-1" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} required /></label>
+          <label className="text-sm block">Email (optional)<input className="w-full mt-1" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></label>
           <label className="text-sm block">Password (min 8)<input type="password" className="w-full mt-1" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></label>
           <button className="btn w-full" onClick={create}>Create operator</button>
           {msg && <div className="text-cream/60 text-sm">{msg}</div>}

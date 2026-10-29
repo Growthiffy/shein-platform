@@ -115,8 +115,8 @@ router.post("/verify", async (req, res) => {
 
 router.post("/login", async (req, res) => {
   const { email: rawEmail, password } = req.body || {};
-  const email = String(rawEmail || "").trim().toLowerCase();
-  const user = await User.findOne({ email });
+  const identifier = String(rawEmail || "").trim().toLowerCase();
+  const user = await User.findOne({ $or: [{ email: identifier }, { username: identifier }] });
   if (!user) return res.status(401).json({ error: "bad credentials" });
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return res.status(401).json({ error: "bad credentials" });

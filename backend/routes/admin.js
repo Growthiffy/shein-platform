@@ -138,13 +138,16 @@ router.get("/admins", async (req, res) => {
   res.json({ items });
 });
 router.post("/admins", async (req, res) => {
-  const email = String(req.body?.email || "").trim().toLowerCase();
+  const email = (req.body?.email || "").trim().toLowerCase() || undefined;
   const { username, password } = req.body || {};
-  if (!email || !password) return res.status(400).json({ error: "email + password required" });
+  if (!username) return res.status(400).json({ error: "username required" });
+  if (!password) return res.status(400).json({ error: "password required" });
   if (String(password).length < 8) return res.status(400).json({ error: "password must be at least 8 characters" });
-  if (await User.findOne({ email })) return res.status(409).json({ error: "email already in use" });
+  if (email && await User.findOne({ email })) return res.status(409).json({ error: "email already in use" });
+  if (await User.findOne({ username: username.trim() })) return res.status(409).json({ error: "username already in use" });
   const op = await User.create({
-    email, username, passwordHash: await bcrypt.hash(String(password), 10),
+    email: email || undefined, username: username.trim(),
+    passwordHash: await bcrypt.hash(String(password), 10),
     role: "admin", isAdmin: true, emailVerified: true, rewardCredit: 0,
   });
   res.json({ item: { _id: op._id, email: op.email, username: op.username, createdAt: op.createdAt } });
