@@ -53,13 +53,46 @@ Email verification:
   - Beginner: salary $230/day · 1.2% normal · 23% latest · min balance $0
   - Silver:   salary $500/day · 2% / 28% · min $1000
   - Gold:     salary $750/day · 4% / 35% · min $2000
-- **Analyst cycle**: 27 products per cycle. System auto-prices from balance; admin
-  can set a manual profit adjustment (positive or negative correction) for a user's
-  next product as part of normal risk management.
-- **Invest tiers**: Basic 1%/wk @ $1000 → Royal VIP 30%/wk @ $25000.
-- **Mentor**: one-time pick; change via support (admin edits user).
+- **Daily salary**: accrued on each `/api/me` fetch at the level rate (Beginner
+  $230, Silver $500, Gold $750). Credited only to email-verified users with a
+  positive balance at/above their level's min balance; elapsed days clamped to
+  [0,7] so an idle account cannot farm a backlog.
+- **Analyst cycle**: 27 products per cycle. System auto-prices from balance; the
+  profit % is snapshotted when a product is first shown so a mid-cycle deposit
+  does not move the quote. Admin can set a manual profit adjustment (positive or
+  negative correction) for a user's next product, which overrides the snapshot.
+- **Invest tiers**: Basic 1%/wk @ $1000 → Royal VIP 30%/wk @ $25000. Lock period
+  is admin-controlled (not chosen by the user).
+- **Mentor**: one-time pick; admin sets/clears a user's mentor from the dashboard.
 - **Community**: `daily` and `invest` groups + per-mentor rooms. Admin can publish
-  editorial posts via staff announcement accounts (clearly labeled).
+  editorial posts via staff announcement accounts, controls which users can reach
+  which groups, and manages 20–25 AI personas that post automated chatter.
+
+## Admin settings (dashboard → Settings)
+
+Generic key/value `Setting` collection. Seeded defaults, admin-editable:
+
+| Key                      | Default | Effect                                        |
+|--------------------------|---------|-----------------------------------------------|
+| `minWithdrawalUsd`       | 50      | Rejects withdrawals below this amount.        |
+| `investLockWeeks`        | 4       | Lock duration applied to new investments.     |
+| `personaChatIntervalMin` | 15      | Min minutes between automated persona posts.  |
+
+- `GET /api/admin/settings` · `PUT /api/admin/settings/:key {value}` (admin).
+- `GET /api/wallet/limits` exposes only `{ minWithdrawalUsd }` to members.
+
+## Personas (dashboard → Personas)
+
+22 AI community members seeded across `daily` / `invest` / `both`. On a community
+GET, if the group's last message is older than `personaChatIntervalMin`, one random
+active persona posts a generic, non-promotional line (`authorType: "persona"`,
+shown with the staff badge). Admin can add, toggle active/canReply, or delete them.
+
+## Community access control (dashboard → Users)
+
+Each user has `communityAccess { daily, invest, mentorRooms }` (all default true).
+Unchecking a flag returns 403 on that group's GET/POST; the customer app hides the
+tab and disables sending.
 
 ## Routes (backend)
 
@@ -79,20 +112,22 @@ GET  /api/analyst/history
 
 GET  /api/wallet/deposit-addresses
 POST /api/wallet/deposit {amount, chain, txHash, slipUrl?}
-POST /api/wallet/withdraw {amount, chain, address}
+POST /api/wallet/withdraw {amount, chain, address}   -> enforces minWithdrawalUsd
 GET  /api/wallet/history
+GET  /api/wallet/limits                          -> {minWithdrawalUsd}
 
-GET  /api/invest/tiers
-POST /api/invest/start   {amount, tierLevel, lockWeeks?}
+GET  /api/invest/tiers                            -> {tiers, lockWeeks}
+POST /api/invest/start   {amount, tierLevel}      -> lockWeeks is admin-set, body ignored
 POST /api/invest/release
 
 GET  /api/mentor                                 -> list of mentors
 POST /api/mentor/select  {id}
 
-GET  /api/community/:group                       -> daily | invest | mentor:<id>
+GET  /api/community/:group                       -> daily | invest | mentor:<id> (403 if gated)
 POST /api/community/:group {text}
 
-/api/admin/* (admin JWT)                         -> users, products, tx, wallets, mentors, chat
+/api/admin/* (admin JWT) -> users, products, tx, wallets, mentors, chat,
+                            settings (GET, PUT :key), personas (CRUD)
 ```
 
 ## Deployment

@@ -15,10 +15,12 @@ export default function Withdraw() {
   const [history, setHistory] = useState([]);
   const [err, setErr] = useState("");
   const [receipt, setReceipt] = useState(null);
+  const [minWithdrawal, setMinWithdrawal] = useState(null);
 
   async function load() {
     const u = await api("/api/me"); setMe(u.user);
     const h = await api("/api/wallet/history"); setHistory(h.items.filter(x => x.type === "withdrawal"));
+    try { const l = await api("/api/wallet/limits"); setMinWithdrawal(l.minWithdrawalUsd); } catch {}
   }
   useEffect(() => {
     if (!getToken()) { r.push("/auth"); return; }
@@ -71,6 +73,7 @@ export default function Withdraw() {
           <button className="mt-3 px-4 py-2 rounded-full border border-gold/40" onClick={saveWallet}>SAVE WALLET</button>
 
           <Input label="Amount (USD)" value={amount} onChange={setAmount} type="number" />
+          {minWithdrawal != null && <div className="text-xs text-cream/50 mt-1">Minimum: ${minWithdrawal}</div>}
           {err && <div className="text-red-400 text-sm mt-2">{err}</div>}
           <button className="btn-gold mt-3 w-full" onClick={withdraw}>REQUEST WITHDRAWAL</button>
         </div>

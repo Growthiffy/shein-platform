@@ -11,7 +11,11 @@ function levelFor(balance) {
 
 function nextProductForUser(user, product) {
   const lvl = levelFor(user.balance);
-  const basePct = product.isLatest ? lvl.latestPct : lvl.normalPct;
+  // Price stability: once a product is first shown, its profit % is snapshotted
+  // onto the user (pendingProfitPct) so a mid-cycle deposit/level-up does not
+  // move the quote for the same pending product. Admin override still wins.
+  const snap = user.analyst?.pendingProfitPct;
+  const basePct = (snap !== null && snap !== undefined) ? snap : (product.isLatest ? lvl.latestPct : lvl.normalPct);
   const adjusted = user.analyst?.pendingAdjustedProfitPct;
   const profitPct = (adjusted !== null && adjusted !== undefined) ? adjusted : basePct;
 

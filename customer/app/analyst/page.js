@@ -146,7 +146,7 @@ function ProductCard({ next, comment, setComment, onSubmit, busy, err }) {
           <Line label="Buying Rate"    value={`$${q.buyingRate}`} highlight />
           <Line label="Sale Price"     value={`$${q.salePrice}`} />
           <Line label="Profit %"       value={`${q.profitPct}%`} highlight />
-          <Line label="You Earn"       value={`$${q.profitAmount}`} big />
+          <Line label="Dividends"      value={`$${q.profitAmount}`} big />
           <Line label="Progress"       value={`${next.cycleIndex}/27`} />
         </div>
 

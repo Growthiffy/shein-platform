@@ -13,6 +13,7 @@ const UserSchema = new mongoose.Schema({
   level:        { type: String, default: "beginner" },
   dailySalary:  { type: Number, default: 230 },
   totalEarned:  { type: Number, default: 0 },
+  lastSalaryAt: { type: Date },                   // last daily-salary accrual timestamp
 
   mentor:       { type: mongoose.Schema.Types.ObjectId, ref: "Mentor", default: null },
 
@@ -29,7 +30,16 @@ const UserSchema = new mongoose.Schema({
   analyst: {
     cycleCount:   { type: Number, default: 0 },     // products submitted in current cycle (0-27)
     pendingProduct: { type: mongoose.Schema.Types.ObjectId, ref: "Product", default: null },
+    pendingProfitPct: { type: Number, default: null },         // snapshot of profit % when product first shown (price stability)
     pendingAdjustedProfitPct: { type: Number, default: null }, // admin-set profit adjustment for next product
+  },
+
+  // Community access gates (admin-controlled). Default all true so existing
+  // users keep full access.
+  communityAccess: {
+    daily:       { type: Boolean, default: true },
+    invest:      { type: Boolean, default: true },
+    mentorRooms: { type: Boolean, default: true },
   },
 
   // RBAC. `role` is the source of truth; `isAdmin` kept in sync for backward compat.

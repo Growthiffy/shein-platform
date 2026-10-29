@@ -11,6 +11,8 @@ const NAV = [
   { href: "/wallets", label: "Deposit Wallets" },
   { href: "/mentors", label: "Mentors" },
   { href: "/community", label: "Community" },
+  { href: "/personas", label: "Personas" },
+  { href: "/settings", label: "Settings" },
 ];
 
 export default function Shell({ children }) {

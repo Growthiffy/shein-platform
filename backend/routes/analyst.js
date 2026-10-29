@@ -3,7 +3,7 @@ const { auth } = require("../middleware/auth");
 const Product = require("../models/Product");
 const AnalystSubmission = require("../models/AnalystSubmission");
 const Transaction = require("../models/Transaction");
-const { nextProductForUser } = require("../utils/pricing");
+const { nextProductForUser, levelFor } = require("../utils/pricing");
 const { PRODUCTS_PER_CYCLE } = require("../config/levels");
 
 // Return (or pick) the next product for this user, with buying rate / sale / profit prefilled.
@@ -22,6 +22,9 @@ router.get("/next", auth, async (req, res) => {
     const skip = Math.floor(Math.random() * count);
     product = await Product.findOne({ active: true }).skip(skip);
     u.analyst.pendingProduct = product._id;
+    // Snapshot the profit % at first show so it stays stable this product.
+    const lvl = levelFor(u.balance);
+    u.analyst.pendingProfitPct = product.isLatest ? lvl.latestPct : lvl.normalPct;
     await u.save();
   }
 
@@ -58,6 +61,7 @@ router.post("/submit", auth, async (req, res) => {
   u.totalEarned = +(u.totalEarned + q.profitAmount).toFixed(2);
   u.analyst.cycleCount += 1;
   u.analyst.pendingProduct = null;
+  u.analyst.pendingProfitPct = null;
   u.analyst.pendingAdjustedProfitPct = null;
   await u.save();
 

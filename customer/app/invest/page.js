@@ -10,19 +10,19 @@ export default function Invest() {
   const [me, setMe] = useState(null);
   const [amount, setAmount] = useState("");
   const [tier, setTier] = useState(1);
-  const [lock, setLock] = useState(4);
+  const [lockWeeks, setLockWeeks] = useState(4);
   const [err, setErr] = useState("");
 
   async function load() { setMe((await api("/api/me")).user); }
   useEffect(() => {
     if (!getToken()) { r.push("/auth"); return; }
-    api("/api/invest/tiers").then(d => setTiers(d.tiers));
+    api("/api/invest/tiers").then(d => { setTiers(d.tiers); if (d.lockWeeks != null) setLockWeeks(d.lockWeeks); });
     load();
   }, []);
 
   async function start() {
     setErr("");
-    try { await api("/api/invest/start", { method: "POST", body: { amount: Number(amount), tierLevel: tier, lockWeeks: lock } }); await load(); setAmount(""); }
+    try { await api("/api/invest/start", { method: "POST", body: { amount: Number(amount), tierLevel: tier } }); await load(); setAmount(""); }
     catch (e) { setErr(e.message); }
   }
   async function release() {
@@ -84,12 +84,7 @@ export default function Invest() {
                   </select>
                 </label>
                 <Input label="Amount (USD)"     value={amount} onChange={setAmount} type="number" />
-                <label className="block mt-2">
-                  <span className="text-xs tracking-widest text-cream/60">LOCK WEEKS</span>
-                  <select value={lock} onChange={e => setLock(Number(e.target.value))} className="w-full mt-1 bg-black/40 border border-gold/20 rounded-lg px-3 py-2 outline-none focus:border-gold">
-                    {[4, 8, 12, 24, 52].map(w => <option key={w} value={w}>{w} weeks</option>)}
-                  </select>
-                </label>
+                <div className="mt-3 text-sm text-cream/70">Lock period: <b className="text-gold">{lockWeeks} weeks</b> <span className="text-cream/40">(set by admin)</span></div>
                 {err && <div className="text-red-400 text-sm mt-2">{err}</div>}
                 <button className="btn-gold mt-3 w-full" onClick={start}>LOCK & START</button>
               </>
