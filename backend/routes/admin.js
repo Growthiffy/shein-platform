@@ -246,9 +246,16 @@ router.delete("/personas/:id", async (req, res) => { await Persona.findByIdAndDe
 // Shein staff announcement account (shown to users with a staff badge).
 router.post("/chat/:group", async (req, res) => {
   const { authorName, authorAvatar, canReply = false } = req.body || {};
+  const group = req.params.group;
   const text = String(req.body?.text || "").replace(/\r\n/g, "\n").trim();
   if (!text) return res.status(400).json({ error: "empty" });
-  const msg = await ChatMessage.create({ group: req.params.group, authorType: "staff", authorName, authorAvatar, text, canReply });
+  let replyTo;
+  if (req.body?.replyTo) {
+    const ref = await ChatMessage.findOne({ _id: req.body.replyTo, group }).catch(() => null);
+    if (ref) replyTo = { id: ref._id, authorName: ref.authorName, text: String(ref.text || "").slice(0, 140) };
+  }
+  const mentions = [...new Set((text.match(/@([A-Za-z0-9._-]{2,30})/g) || []).map(s => s.slice(1)))];
+  const msg = await ChatMessage.create({ group, authorType: "staff", authorName: authorName || "Shein Staff", authorAvatar, text, canReply, replyTo, mentions });
   res.json({ msg });
 });
 // Moderation: list recent messages in a group (newest first) and delete any message.

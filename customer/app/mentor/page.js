@@ -83,6 +83,12 @@ function Body() {
                         <span className={mine ? "text-white/40" : "text-cream/30"}>{new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                         {mine && <button onClick={() => del(m._id)} className="opacity-0 group-hover:opacity-100 text-white/70 hover:text-white transition"><Trash2 size={11} /></button>}
                       </div>
+                      {m.replyTo?.text && (
+                        <div className={`mb-1 border-l-2 pl-2 ${mine ? "border-white/50" : "border-gold2/60"}`}>
+                          <div className={`text-[11px] font-medium ${mine ? "text-white/80" : "text-gold2"}`}>{m.replyTo.authorName}</div>
+                          <div className={`text-[11px] truncate ${mine ? "text-white/60" : "text-cream/50"}`}>{m.replyTo.text}</div>
+                        </div>
+                      )}
                       <Formatted text={m.text} light={mine} />
                     </div>
                   </div>
@@ -104,12 +110,14 @@ function Body() {
 }
 
 function Formatted({ text, light }) {
-  const parts = String(text).split(/(https?:\/\/[^\s]+)/g);
+  const parts = String(text).split(/(@[A-Za-z0-9._-]{2,30}|https?:\/\/[^\s]+)/g);
   return (
     <div className="whitespace-pre-wrap break-words">
-      {parts.map((p, i) => /^https?:\/\//.test(p)
-        ? <a key={i} href={p} target="_blank" rel="noreferrer" className={`underline ${light ? "text-white" : "text-gold2"}`}>{p}</a>
-        : <span key={i}>{p}</span>)}
+      {parts.map((p, i) => {
+        if (/^https?:\/\//.test(p)) return <a key={i} href={p} target="_blank" rel="noreferrer" className={`underline ${light ? "text-white" : "text-gold2"}`}>{p}</a>;
+        if (/^@[A-Za-z0-9._-]{2,30}$/.test(p)) return <span key={i} className={light ? "font-medium underline" : "text-gold2 font-medium"}>{p}</span>;
+        return <span key={i}>{p}</span>;
+      })}
     </div>
   );
 }

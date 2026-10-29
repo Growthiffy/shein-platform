@@ -5,9 +5,8 @@ import { api } from "@/lib/api";
 
 // Known settings with human labels. Unknown keys from the API still render.
 const KNOWN = [
-  { key: "minWithdrawalUsd",       label: "Minimum withdrawal (USD)" },
-  { key: "investLockWeeks",        label: "Investment lock period (weeks)" },
-  { key: "personaChatIntervalMin", label: "Persona chat interval (minutes)" },
+  { key: "minWithdrawalUsd", label: "Minimum withdrawal (USD)" },
+  { key: "investLockWeeks",  label: "Investment lock period (weeks)" },
 ];
 
 export default function Settings() {
