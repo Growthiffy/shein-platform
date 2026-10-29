@@ -1,4 +1,4 @@
-const BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4001";
+const BASE = process.env.NEXT_PUBLIC_API_BASE || "";
 
 function token() {
   if (typeof window === "undefined") return null;
