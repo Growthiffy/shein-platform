@@ -35,6 +35,8 @@ function Body() {
         <Link href="/analyst/demo" className="btn-outline py-2 px-4 text-sm">Demo Account</Link>
       </div>
 
+      <LevelBar balance={me.balance} />
+
       <div className="flex gap-4 mt-6 border-b border-gold/10">
         <Tab active={tab === "work"} onClick={() => setTab("work")}>Analyst</Tab>
         <Tab active={tab === "history"} onClick={() => setTab("history")}>History</Tab>
@@ -56,6 +58,28 @@ function Body() {
   );
 }
 
+const LADDER = [
+  { key: "beginner", name: "Beginner", min: 0 },
+  { key: "silver", name: "Silver", min: 1000 },
+  { key: "gold", name: "Gold", min: 2000 },
+];
+function LevelBar({ balance = 0 }) {
+  let cur = LADDER[0];
+  for (const l of LADDER) if (balance >= l.min) cur = l;
+  const next = LADDER[LADDER.indexOf(cur) + 1];
+  const pct = next ? Math.min(100, Math.round((balance / next.min) * 100)) : 100;
+  return (
+    <div className="card p-4 mt-4">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-gold font-semibold">{cur.name} level</span>
+        <span className="text-cream/60">{next ? `$${balance.toFixed(0)} / $${next.min} to ${next.name}` : "Top level reached"}</span>
+      </div>
+      <div className="mt-2 h-2 rounded-full bg-black/[0.06] overflow-hidden">
+        <div className="h-full rounded-full bg-gold2" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
 function Tab({ active, onClick, children }) {
   return <button onClick={onClick} className={`px-4 py-2 border-b-2 transition ${active ? "border-gold text-gold" : "border-transparent text-cream/60 hover:text-cream"}`}>{children}</button>;
 }

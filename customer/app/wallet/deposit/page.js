@@ -2,8 +2,19 @@
 import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
 import { api } from "@/lib/api";
+import { Copy, Check } from "lucide-react";
 
 export default function DepositPage() { return <AppShell><Body /></AppShell>; }
+
+function CopyBtn({ text }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button onClick={() => { if (!text) return; navigator.clipboard?.writeText(text); setDone(true); setTimeout(() => setDone(false), 1500); }}
+      className="inline-flex items-center gap-1 text-xs text-gold2 hover:underline">
+      {done ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
+    </button>
+  );
+}
 
 function Body() {
   const [addrs, setAddrs] = useState([]);
@@ -39,11 +50,19 @@ function Body() {
             {addrs.map(a => <option key={a._id} value={a.chain}>{a.chain}</option>)}
           </select>
         </label>
-        <div className="mt-3 p-3 bg-ink2 rounded-lg border border-gold/10">
-          <div className="label">Company Address</div>
+        <div className="mt-3 p-3 bg-ink2 rounded-lg border border-line">
+          <div className="flex items-center justify-between">
+            <div className="label">Company Address</div>
+            <CopyBtn text={addrs.find(a => a.chain === chain)?.address || ""} />
+          </div>
           <div className="break-all text-sm text-gold mt-1">{addrs.find(a => a.chain === chain)?.address || "—"}</div>
         </div>
         <Input label="Amount (USD)" value={amount} onChange={setAmount} type="number" />
+        <div className="mt-2 flex flex-wrap gap-2">
+          {[50, 100, 500, 1000].map(v => (
+            <button key={v} onClick={() => setAmount(String(v))} className="btn-outline py-1 px-3 text-xs">${v}</button>
+          ))}
+        </div>
         <Input label="Your TX Hash" value={txHash} onChange={setTxHash} />
         <Input label="Payment Slip URL (optional)" value={slipUrl} onChange={setSlipUrl} />
         {err && <div className="text-red-400 text-sm mt-2">{err}</div>}

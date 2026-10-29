@@ -31,15 +31,44 @@ router.post("/start", auth, async (req, res) => {
   res.json({ investment: req.user.investment, balance: req.user.balance });
 });
 
+const WEEK_MS = 7 * 24 * 3600 * 1000;
+
+// Live summary of the member's active investment.
+router.get("/summary", auth, async (req, res) => {
+  const inv = req.user.investment;
+  if (!inv?.amount) return res.json({ active: false });
+  const tier = INVEST_TIERS.find(t => t.level === inv.tier) || {};
+  const now = Date.now();
+  const started = inv.startedAt ? new Date(inv.startedAt).getTime() : now;
+  const lastPayout = inv.lastPayoutAt ? new Date(inv.lastPayoutAt).getTime() : started;
+  const weeklyPct = tier.weeklyPct || 0;
+  const weeklyEarn = +(inv.amount * weeklyPct / 100).toFixed(2);
+  const weeksElapsed = Math.floor((now - started) / WEEK_MS);
+  const paidAgg = await Transaction.aggregate([
+    { $match: { user: req.user._id, type: "invest_payout" } },
+    { $group: { _id: null, total: { $sum: "$amount" } } },
+  ]);
+  res.json({
+    active: true,
+    tier: inv.tier, tierName: tier.name, amount: inv.amount, weeklyPct,
+    weeklyEarn, weeksElapsed,
+    startedAt: inv.startedAt, lockUntil: inv.lockUntil,
+    nextPayoutAt: new Date(lastPayout + WEEK_MS),
+    unlocked: !inv.lockUntil || new Date(inv.lockUntil).getTime() <= now,
+    totalPaid: +(paidAgg[0]?.total || 0).toFixed(2),
+  });
+});
+
 router.post("/release", auth, async (req, res) => {
   const inv = req.user.investment;
   if (!inv?.amount) return res.status(400).json({ error: "no active investment" });
   if (inv.lockUntil && inv.lockUntil > new Date()) return res.status(400).json({ error: "still locked" });
   const amt = inv.amount;
   req.user.balance = +(req.user.balance + amt).toFixed(2);
-  req.user.investment = { tier: 0, amount: 0 };
+  // Full reset so no stale lock/payout timestamps linger.
+  req.user.investment = { tier: 0, amount: 0, startedAt: null, lockUntil: null, lastPayoutAt: null };
   await req.user.save();
-  await Transaction.create({ user: req.user._id, type: "invest_release", amount: amt });
+  await Transaction.create({ user: req.user._id, type: "invest_release", amount: amt, note: "principal returned" });
   res.json({ balance: req.user.balance });
 });
 

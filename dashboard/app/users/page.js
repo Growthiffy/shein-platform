@@ -8,6 +8,7 @@ export default function Users() {
   const [items, setItems] = useState([]);
   const [mentors, setMentors] = useState([]);
   const [sel, setSel] = useState(null);
+  const [q, setQ] = useState("");
   async function load() { const d = await api("/api/admin/users"); setItems(d.items); if (sel) setSel(d.items.find(u => u._id === sel._id) || null); }
   useEffect(() => { load(); api("/api/admin/mentors").then(d => setMentors(d.items)).catch(() => {}); }, []);
 
@@ -39,16 +40,23 @@ export default function Users() {
 
   return (
     <Shell>
-      <h1 className="text-2xl text-gold mb-4">Users</h1>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl text-gold font-display">Members</h1>
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search email / username / #" className="w-64 text-sm" />
+      </div>
       <div className="grid grid-cols-3 gap-4">
         <div className="card overflow-x-auto col-span-2">
           <table>
-            <thead><tr className="text-cream/60"><th>Email</th><th>Username</th><th>Role</th><th>Balance</th><th>Level</th><th>Cycle</th><th>Verified</th></tr></thead>
+            <thead><tr className="text-cream/60"><th>Member #</th><th>Email</th><th>Username</th><th>Balance</th><th>Level</th><th>Cycle</th><th>Verified</th></tr></thead>
             <tbody>
-              {items.map(u => (
-                <tr key={u._id} className="cursor-pointer hover:bg-white/5" onClick={() => setSel(u)}>
+              {items.filter(u => {
+                const s = q.trim().toLowerCase();
+                if (!s) return true;
+                return (u.email || "").toLowerCase().includes(s) || (u.username || "").toLowerCase().includes(s) || String(u.accountNumber || "").includes(s);
+              }).map(u => (
+                <tr key={u._id} className="cursor-pointer hover:bg-black/[0.03]" onClick={() => setSel(u)}>
+                  <td className="text-cream/50">{u.accountNumber ?? "—"}</td>
                   <td>{u.email}</td><td>{u.username || "-"}</td>
-                  <td>{(u.role || (u.isAdmin ? "admin" : "customer"))}</td>
                   <td>${(u.balance ?? 0).toFixed(2)}</td>
                   <td>{u.level}</td><td>{u.analyst?.cycleCount ?? 0}/27</td><td>{u.emailVerified ? "✓" : "—"}</td>
                 </tr>
@@ -110,10 +118,7 @@ export default function Users() {
                 <button className="btn-ghost text-xs" onClick={notify}>Send Notification</button>
               </div>
 
-              <label className="flex items-center gap-2 mt-2 text-sm">
-                <input type="checkbox" checked={!!sel.isAdmin} onChange={e => save({ isAdmin: e.target.checked })} /> admin
-              </label>
-              <label className="flex items-center gap-2 text-sm">
+              <label className="flex items-center gap-2 text-sm mt-2">
                 <input type="checkbox" checked={!!sel.emailVerified} onChange={e => save({ emailVerified: e.target.checked })} /> email verified
               </label>
             </div>

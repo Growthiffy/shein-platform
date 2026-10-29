@@ -40,10 +40,11 @@ export default function Products() {
       </div>
       <div className="card overflow-x-auto">
         <table>
-          <thead><tr className="text-cream/60"><th>Brand</th><th>Name</th><th>Price</th><th>Latest</th><th>Active</th><th></th></tr></thead>
+          <thead><tr className="text-cream/60"><th>Img</th><th>Brand</th><th>Name</th><th>Price</th><th>Latest</th><th>Active</th><th></th></tr></thead>
           <tbody>
             {items.map(p => (
               <tr key={p._id}>
+                <td>{p.image ? <img src={p.image} alt="" className="h-9 w-9 rounded object-cover" /> : <span className="text-cream/30">—</span>}</td>
                 <td>{p.brand}</td><td>{p.name}</td><td>${p.originalPrice}</td>
                 <td><button className="btn-ghost" onClick={() => toggleLatest(p)}>{p.isLatest ? "★ latest" : "normal"}</button></td>
                 <td><button className="btn-ghost" onClick={() => toggle(p)}>{p.active ? "on" : "off"}</button></td>
