@@ -245,9 +245,20 @@ router.delete("/personas/:id", async (req, res) => { await Persona.findByIdAndDe
 // Editorial community posting: admin publishes a message through an official
 // Shein staff announcement account (shown to users with a staff badge).
 router.post("/chat/:group", async (req, res) => {
-  const { text, authorName, authorAvatar, canReply = false } = req.body || {};
+  const { authorName, authorAvatar, canReply = false } = req.body || {};
+  const text = String(req.body?.text || "").replace(/\r\n/g, "\n").trim();
+  if (!text) return res.status(400).json({ error: "empty" });
   const msg = await ChatMessage.create({ group: req.params.group, authorType: "staff", authorName, authorAvatar, text, canReply });
   res.json({ msg });
+});
+// Moderation: list recent messages in a group (newest first) and delete any message.
+router.get("/chat/:group", async (req, res) => {
+  const items = await ChatMessage.find({ group: req.params.group }).sort({ createdAt: -1 }).limit(200);
+  res.json({ items });
+});
+router.delete("/chat/message/:id", async (req, res) => {
+  await ChatMessage.findByIdAndDelete(req.params.id);
+  res.json({ ok: true });
 });
 
 module.exports = router;
