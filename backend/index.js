@@ -11,7 +11,15 @@ app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false 
 app.use(express.json({ limit: "4mb" }));
 
 const origins = (process.env.CORS_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
-app.use(cors({ origin: origins.length ? origins : true, credentials: true }));
+const corsCheck = (origin, cb) => {
+  if (!origin) return cb(null, true);
+  if (!origins.length) return cb(null, true);
+  if (origins.includes(origin)) return cb(null, true);
+  // allow any *.vercel.app for preview deploys and primary vercel domains
+  try { const h = new URL(origin).hostname; if (h.endsWith(".vercel.app")) return cb(null, true); } catch {}
+  cb(null, false);
+};
+app.use(cors({ origin: corsCheck, credentials: true }));
 
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false });
 app.use("/api/auth", authLimiter);
