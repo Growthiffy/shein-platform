@@ -93,4 +93,11 @@ router.post("/notifications/read", auth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// Clear all notifications.
+router.post("/notifications/clear", auth, async (req, res) => {
+  req.user.notifications = [];
+  await req.user.save();
+  res.json({ ok: true });
+});
+
 module.exports = router;

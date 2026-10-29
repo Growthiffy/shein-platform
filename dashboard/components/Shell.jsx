@@ -3,11 +3,11 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { api, setToken, getToken } from "@/lib/api";
 import { useEffect } from "react";
-import { LayoutDashboard, Users, Package, ArrowLeftRight, Wallet, GraduationCap, MessagesSquare, Bot, Settings, History, LifeBuoy, UserPlus, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, Package, ArrowLeftRight, Wallet, GraduationCap, MessagesSquare, Bot, Settings, History, LifeBuoy, UserPlus, LogOut, ShieldCheck } from "lucide-react";
 
 const NAV = [
   { href: "/overview", label: "Overview", icon: LayoutDashboard },
-  { href: "/users", label: "Users", icon: Users },
+  { href: "/users", label: "Members", icon: Users },
   { href: "/products", label: "Products", icon: Package },
   { href: "/tx", label: "Transactions", icon: ArrowLeftRight },
   { href: "/wallets", label: "Deposit Wallets", icon: Wallet },
@@ -17,6 +17,7 @@ const NAV = [
   { href: "/support", label: "Support", icon: LifeBuoy },
   { href: "/referrals", label: "Referrals", icon: UserPlus },
   { href: "/login-history", label: "Login History", icon: History },
+  { href: "/admins", label: "Admins", icon: ShieldCheck },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

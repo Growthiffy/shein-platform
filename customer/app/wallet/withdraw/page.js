@@ -65,6 +65,11 @@ function Body() {
         <button className="btn-outline mt-3 py-2 px-4 text-sm" onClick={saveWallet}>SAVE WALLET</button>
 
         <Input label="Amount (USD)" value={amount} onChange={setAmount} type="number" />
+        <div className="mt-2 flex flex-wrap gap-2">
+          {[["25%", me.balance * 0.25], ["50%", me.balance * 0.5], ["Max", me.balance]].map(([lbl, v]) => (
+            <button key={lbl} onClick={() => setAmount(String(Math.floor(v * 100) / 100))} className="btn-outline py-1 px-3 text-xs">{lbl}</button>
+          ))}
+        </div>
         {minWithdrawal != null && <div className="text-xs text-cream/50 mt-1">Minimum: ${minWithdrawal}</div>}
         {err && <div className="text-red-400 text-sm mt-2">{err}</div>}
         <button className="btn-gold mt-3 w-full" onClick={withdraw}>REQUEST WITHDRAWAL</button>

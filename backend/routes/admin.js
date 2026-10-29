@@ -1,4 +1,5 @@
 const router = require("express").Router();
+const bcrypt = require("bcryptjs");
 const { auth, admin } = require("../middleware/auth");
 const User = require("../models/User");
 const Product = require("../models/Product");
@@ -17,8 +18,8 @@ router.use(auth, admin);
 // Dashboard stats.
 router.get("/stats", async (req, res) => {
   const [users, verified, pendingDeposits, pendingWithdrawals, personas, openSupport] = await Promise.all([
-    User.countDocuments(),
-    User.countDocuments({ emailVerified: true }),
+    User.countDocuments({ role: "customer" }),
+    User.countDocuments({ role: "customer", emailVerified: true }),
     Transaction.countDocuments({ type: "deposit", status: "pending" }),
     Transaction.countDocuments({ type: "withdrawal", status: "pending" }),
     Persona.countDocuments({ active: true }),
@@ -28,7 +29,11 @@ router.get("/stats", async (req, res) => {
     { $match: { type: { $in: ["deposit"] }, status: "approved" } },
     { $group: { _id: null, total: { $sum: "$amount" } } },
   ]);
-  const balAgg = await User.aggregate([{ $group: { _id: null, total: { $sum: "$balance" } } }]);
+  const balAgg = await User.aggregate([{ $match: { role: "customer" } }, { $group: { _id: null, total: { $sum: "$balance" } } }]);
+  const [recentUsers, recentTx] = await Promise.all([
+    User.find({ role: "customer" }).sort({ createdAt: -1 }).limit(6).select("email username accountNumber createdAt emailVerified"),
+    Transaction.find().sort({ createdAt: -1 }).limit(8).populate("user", "email username"),
+  ]);
   res.json({
     stats: {
       users, verified,
@@ -37,6 +42,8 @@ router.get("/stats", async (req, res) => {
       depositVolume: agg[0]?.total || 0,
       totalBalances: +(balAgg[0]?.total || 0).toFixed(2),
     },
+    recentUsers,
+    recentTx: recentTx.map(t => ({ id: t._id, type: t.type, amount: t.amount, status: t.status, at: t.createdAt, user: t.user?.username || t.user?.email || "—" })),
   });
 });
 
@@ -117,6 +124,41 @@ router.delete("/support/:userId", async (req, res) => {
   res.json({ ok: true });
 });
 
+// Broadcast an in-app notification to every user.
+router.post("/broadcast", async (req, res) => {
+  const { text, type } = req.body || {};
+  if (!text?.trim()) return res.status(400).json({ error: "text required" });
+  const r = await User.updateMany({ role: "customer" }, { $push: { notifications: { text: text.trim(), type: type || "info", read: false, createdAt: new Date() } } });
+  res.json({ ok: true, sent: r.modifiedCount ?? r.nModified ?? 0 });
+});
+
+// Admin operators (backend users). Separate from members.
+router.get("/admins", async (req, res) => {
+  const items = await User.find({ role: "admin" }).select("email username createdAt").sort({ createdAt: 1 });
+  res.json({ items });
+});
+router.post("/admins", async (req, res) => {
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  const { username, password } = req.body || {};
+  if (!email || !password) return res.status(400).json({ error: "email + password required" });
+  if (String(password).length < 8) return res.status(400).json({ error: "password must be at least 8 characters" });
+  if (await User.findOne({ email })) return res.status(409).json({ error: "email already in use" });
+  const op = await User.create({
+    email, username, passwordHash: await bcrypt.hash(String(password), 10),
+    role: "admin", isAdmin: true, emailVerified: true, rewardCredit: 0,
+  });
+  res.json({ item: { _id: op._id, email: op.email, username: op.username, createdAt: op.createdAt } });
+});
+router.delete("/admins/:id", async (req, res) => {
+  if (String(req.params.id) === String(req.user._id)) return res.status(400).json({ error: "cannot remove yourself" });
+  const count = await User.countDocuments({ role: "admin" });
+  if (count <= 1) return res.status(400).json({ error: "cannot remove the last admin" });
+  const op = await User.findById(req.params.id);
+  if (!op || op.role !== "admin") return res.status(404).json({ error: "no admin" });
+  await op.deleteOne();
+  res.json({ ok: true });
+});
+
 // Push an in-app notification to a user.
 router.post("/users/:id/notify", async (req, res) => {
   const { text, type } = req.body || {};
@@ -128,12 +170,13 @@ router.post("/users/:id/notify", async (req, res) => {
   res.json({ ok: true });
 });
 
-// Users
-router.get("/users", async (req, res) => res.json({ items: await User.find().sort({ createdAt: -1 }).limit(500) }));
+// Members (customers only — admin operators are managed separately under /admins).
+router.get("/users", async (req, res) => res.json({ items: await User.find({ role: "customer" }).sort({ createdAt: -1 }).limit(500) }));
 
-// Only these fields may be set through the admin edit form. This blocks
-// mass-assignment of passwordHash, email, verifyCode, etc. via raw req.body.
-const USER_EDITABLE = ["balance", "dailySalary", "level", "username", "emailVerified", "role", "isAdmin", "mentor", "rewardCredit", "totalEarned", "communityAccess", "creditScore", "phone"];
+// Only these fields may be set through the member edit form. role/isAdmin are NOT
+// here: members and admin operators are separate — promote/create operators under
+// the Admins page instead. Blocks mass-assignment of passwordHash, email, etc.
+const USER_EDITABLE = ["balance", "dailySalary", "level", "username", "emailVerified", "mentor", "rewardCredit", "totalEarned", "communityAccess", "creditScore", "phone"];
 router.patch("/users/:id", async (req, res) => {
   const u = await User.findById(req.params.id);
   if (!u) return res.status(404).json({ error: "no user" });
@@ -192,8 +235,13 @@ router.post("/mentors", async (req, res) => res.json({ item: await Mentor.create
 router.patch("/mentors/:id", async (req, res) => res.json({ item: await Mentor.findByIdAndUpdate(req.params.id, req.body, { new: true }) }));
 router.delete("/mentors/:id", async (req, res) => { await Mentor.findByIdAndDelete(req.params.id); res.json({ ok: true }); });
 
-// Transactions review
-router.get("/tx", async (req, res) => res.json({ items: await Transaction.find().sort({ createdAt: -1 }).limit(500).populate("user") }));
+// Transactions review (optional ?status= and ?type= filters).
+router.get("/tx", async (req, res) => {
+  const q = {};
+  if (req.query.status) q.status = req.query.status;
+  if (req.query.type) q.type = req.query.type;
+  res.json({ items: await Transaction.find(q).sort({ createdAt: -1 }).limit(500).populate("user") });
+});
 router.post("/tx/:id/approve", async (req, res) => {
   const tx = await Transaction.findById(req.params.id);
   if (!tx) return res.status(404).json({ error: "no tx" });

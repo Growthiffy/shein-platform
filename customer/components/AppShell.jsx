@@ -40,6 +40,10 @@ export default function AppShell({ children }) {
       setMe(m => ({ ...m, notifications: m.notifications.map(n => ({ ...n, read: true })) }));
     }
   }
+  async function clearNotifs() {
+    await api("/api/me/notifications/clear", { method: "POST" }).catch(() => {});
+    setMe(m => ({ ...m, notifications: [] }));
+  }
 
   if (!ready || !me) return <div className="min-h-screen flex items-center justify-center bg-ink text-cream">Loading…</div>;
   const unread = (me.notifications || []).filter(n => !n.read).length;
@@ -75,7 +79,10 @@ export default function AppShell({ children }) {
                 </button>
                 {bell && (
                   <div className="absolute right-0 mt-2 w-72 max-h-96 overflow-y-auto card p-2 z-50">
-                    <div className="label px-2 py-1">Notifications</div>
+                    <div className="flex items-center justify-between px-2 py-1">
+                      <span className="label">Notifications</span>
+                      {(me.notifications || []).length > 0 && <button onClick={clearNotifs} className="text-[11px] text-gold2 hover:underline">Clear all</button>}
+                    </div>
                     {(me.notifications || []).length === 0 && <div className="text-cream/50 text-sm px-2 py-3">Nothing yet.</div>}
                     {(me.notifications || []).map((n, i) => (
                       <div key={i} className="px-2 py-2 rounded-lg hover:bg-black/[0.04]">
