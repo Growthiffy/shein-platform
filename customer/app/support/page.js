@@ -2,19 +2,19 @@
 import { useEffect, useRef, useState } from "react";
 import AppShell from "@/components/AppShell";
 import { api } from "@/lib/api";
-import { LifeBuoy, Send } from "lucide-react";
+import { LifeBuoy, Send, XCircle } from "lucide-react";
 
 export default function SupportPage() { return <AppShell><Body /></AppShell>; }
 
 function Body() {
   const [items, setItems] = useState([]);
-  const [ended, setEnded] = useState(false);
   const [text, setText] = useState("");
+  const [confirmEnd, setConfirmEnd] = useState(false);
   const box = useRef(null);
 
   async function load(scroll = true) {
     const d = await api("/api/support");
-    setItems(d.items); setEnded(d.ended);
+    setItems(d.items);
     if (scroll) setTimeout(() => box.current?.scrollTo(0, box.current.scrollHeight), 50);
   }
   useEffect(() => { load(); const t = setInterval(() => load(false), 8000); return () => clearInterval(t); }, []);
@@ -25,13 +25,25 @@ function Body() {
     try { await api("/api/support", { method: "POST", body: { text: t } }); setText(""); await load(); } catch {}
   }
   function onKey(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }
+  async function endChat() {
+    if (!confirmEnd) { setConfirmEnd(true); setTimeout(() => setConfirmEnd(false), 4000); return; }
+    setConfirmEnd(false);
+    try { await api("/api/support/end", { method: "POST" }); await load(); } catch {}
+  }
 
   return (
     <div className="page">
-      <div className="flex items-center gap-3 mb-4">
-        <span className="grid h-11 w-11 place-items-center rounded-full bg-gold2/10 text-gold2"><LifeBuoy size={20} /></span>
-        <div><h1 className="font-display text-2xl md:text-3xl text-gold">Support</h1>
-          <p className="text-sm text-cream/55">We usually reply within a few hours.</p></div>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-3">
+          <span className="grid h-11 w-11 place-items-center rounded-full bg-gold2/10 text-gold2"><LifeBuoy size={20} /></span>
+          <div><h1 className="font-display text-2xl md:text-3xl text-gold">Support</h1>
+            <p className="text-sm text-cream/55">We usually reply within a few hours.</p></div>
+        </div>
+        {items.length > 0 && (
+          <button onClick={endChat} className={`btn-outline py-2 px-4 text-sm ${confirmEnd ? "!border-gold2 !text-gold2" : ""}`}>
+            <XCircle size={15} /> {confirmEnd ? "Tap to confirm" : "End chat"}
+          </button>
+        )}
       </div>
 
       <div ref={box} className="card h-[60vh] overflow-y-auto p-4 space-y-3">
@@ -47,8 +59,6 @@ function Body() {
         ))}
         {!items.length && <div className="text-center text-cream/50 text-sm py-10">Send us a message to start a conversation.</div>}
       </div>
-
-      {ended && <div className="mt-2 text-center text-xs text-cream/50">This chat was closed. Send a message to reopen it.</div>}
 
       <div className="flex items-end gap-2 mt-3">
         <textarea value={text} onChange={e => setText(e.target.value)} onKeyDown={onKey} rows={1}
