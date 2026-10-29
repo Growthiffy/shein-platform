@@ -12,7 +12,7 @@ export default function Login() {
     e.preventDefault(); setErr("");
     try {
       const d = await api("/api/auth/login", { method: "POST", body: { email, password } });
-      if (!d.user.isAdmin) { setErr("not an admin account"); return; }
+      if (!(d.user.isAdmin || d.user.role === "admin")) { setErr("not an admin account"); return; }
       setToken(d.token); r.push("/users");
     } catch (e) { setErr(e.message); }
   }

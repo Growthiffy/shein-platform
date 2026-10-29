@@ -48,7 +48,7 @@ export default function Analyst() {
       </header>
 
       <section className="max-w-5xl mx-auto px-6 py-8">
-        <ProfileCard me={me} />
+        <ProfileCard me={me} onReload={load} />
 
         <div className="flex gap-4 mt-8 border-b border-gold/10">
           <Tab active={tab === "work"}    onClick={() => setTab("work")}>Analyst</Tab>
@@ -74,12 +74,20 @@ export default function Analyst() {
   );
 }
 
-function ProfileCard({ me }) {
+function ProfileCard({ me, onReload }) {
+  async function setUsername() {
+    const name = prompt("Choose a username (min 3 chars):", me.username || "");
+    if (!name) return;
+    try { await api("/api/me/username", { method: "POST", body: { username: name.trim() } }); await onReload?.(); }
+    catch (e) { alert(e.message); }
+  }
   return (
     <div className="card p-6 flex flex-wrap gap-6 items-center justify-between">
       <div>
         <div className="text-xs tracking-widest text-cream/50">USERNAME</div>
-        <div className="font-display text-2xl text-gold">@{me.username || "set-username"}</div>
+        <button onClick={setUsername} className="font-display text-2xl text-gold hover:underline" title="Click to edit">
+          @{me.username || "set-username"}
+        </button>
       </div>
       <Stat label="Balance" value={`$${me.balance?.toFixed(2) ?? "0.00"}`} />
       <Stat label="Level"   value={me.level?.toUpperCase?.() || "BEGINNER"} />

@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { setToken, getToken } from "@/lib/api";
+import { api, setToken, getToken } from "@/lib/api";
 import { useEffect } from "react";
 
 const NAV = [
@@ -16,7 +16,13 @@ const NAV = [
 export default function Shell({ children }) {
   const p = usePathname();
   const r = useRouter();
-  useEffect(() => { if (!getToken()) r.push("/"); }, []);
+  useEffect(() => {
+    if (!getToken()) { r.push("/"); return; }
+    // Confirm the token still belongs to an admin; non-admins get kicked out.
+    api("/api/me")
+      .then(d => { if (!(d.user?.isAdmin || d.user?.role === "admin")) { setToken(null); r.push("/"); } })
+      .catch(() => { setToken(null); r.push("/"); });
+  }, []);
   return (
     <main className="min-h-screen flex bg-ink text-cream">
       <aside className="w-56 border-r border-gold/10 p-4 space-y-1">

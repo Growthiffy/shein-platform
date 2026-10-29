@@ -38,7 +38,13 @@ npm run dev                     # http://localhost:3011
 
 Default admin: `admin@shein.local` / `admin123` (change in production).
 
-Email verification: in dev with no SMTP set, codes are printed to the backend console.
+Email verification:
+- **Production**: set `RESEND_API_KEY` (recommended for Vercel) **or** `SMTP_*` env vars.
+  Without a provider the signup/resend endpoints return an error — email is required.
+- **Development** (no provider): the signup/resend API response includes a `devCode`
+  field with the 6-digit code, and the verify screen shows/pre-fills it, so you can
+  test without sending real mail.
+- `MAIL_FROM` must be a sender your provider has verified.
 
 ## Business model (per spec)
 
