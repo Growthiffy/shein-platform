@@ -2,11 +2,17 @@ const router = require("express").Router();
 const { auth } = require("../middleware/auth");
 const { INVEST_TIERS } = require("../config/levels");
 const Transaction = require("../models/Transaction");
+const { getSetting } = require("../utils/settings");
 
-router.get("/tiers", (req, res) => res.json({ tiers: INVEST_TIERS }));
+router.get("/tiers", async (req, res) => {
+  const lockWeeks = Number(await getSetting("investLockWeeks"));
+  res.json({ tiers: INVEST_TIERS, lockWeeks });
+});
 
 router.post("/start", auth, async (req, res) => {
-  const { amount, tierLevel, lockWeeks = 4 } = req.body || {};
+  // Lock period is admin-controlled; any lockWeeks in the request body is ignored.
+  const { amount, tierLevel } = req.body || {};
+  const lockWeeks = Number(await getSetting("investLockWeeks"));
   const tier = INVEST_TIERS.find(t => t.level === Number(tierLevel));
   if (!tier) return res.status(400).json({ error: "bad tier" });
   if (Number(amount) < tier.min) return res.status(400).json({ error: `min ${tier.min}` });

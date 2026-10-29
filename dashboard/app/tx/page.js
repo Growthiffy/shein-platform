@@ -13,13 +13,14 @@ export default function Tx() {
       <h1 className="text-2xl text-gold mb-4">Transactions</h1>
       <div className="card overflow-x-auto">
         <table>
-          <thead><tr className="text-cream/60"><th>Date</th><th>User</th><th>Type</th><th>Amount</th><th>Chain</th><th>Status</th><th></th></tr></thead>
+          <thead><tr className="text-cream/60"><th>Date</th><th>User</th><th>Type</th><th>Amount</th><th>Chain</th><th>Slip</th><th>Status</th><th></th></tr></thead>
           <tbody>
             {items.map(t => (
               <tr key={t._id}>
                 <td>{new Date(t.createdAt).toLocaleString()}</td>
                 <td>{t.user?.email || "—"}</td>
                 <td>{t.type}</td><td>${t.amount}</td><td>{t.chain || "-"}</td>
+                <td>{t.slipUrl ? <a href={t.slipUrl} target="_blank" rel="noreferrer" className="text-gold underline">view</a> : "-"}</td>
                 <td>{t.status}</td>
                 <td>
                   {t.status === "pending" && (

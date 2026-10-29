@@ -6,6 +6,9 @@ const Transaction = require("../models/Transaction");
 const DepositWallet = require("../models/DepositWallet");
 const Mentor = require("../models/Mentor");
 const ChatMessage = require("../models/ChatMessage");
+const Setting = require("../models/Setting");
+const Persona = require("../models/Persona");
+const { DEFAULTS } = require("../utils/settings");
 
 router.use(auth, admin);
 
@@ -14,7 +17,7 @@ router.get("/users", async (req, res) => res.json({ items: await User.find().sor
 
 // Only these fields may be set through the admin edit form. This blocks
 // mass-assignment of passwordHash, email, verifyCode, etc. via raw req.body.
-const USER_EDITABLE = ["balance", "dailySalary", "level", "username", "emailVerified", "role", "isAdmin", "mentor", "rewardCredit", "totalEarned"];
+const USER_EDITABLE = ["balance", "dailySalary", "level", "username", "emailVerified", "role", "isAdmin", "mentor", "rewardCredit", "totalEarned", "communityAccess"];
 router.patch("/users/:id", async (req, res) => {
   const u = await User.findById(req.params.id);
   if (!u) return res.status(404).json({ error: "no user" });
@@ -29,6 +32,7 @@ router.post("/users/:id/reset-cycle", async (req, res) => {
   if (!u) return res.status(404).json({ error: "no user" });
   u.analyst.cycleCount = 0;
   u.analyst.pendingProduct = null;
+  u.analyst.pendingProfitPct = null;
   u.analyst.pendingAdjustedProfitPct = null;
   await u.save();
   res.json({ user: u });
@@ -100,6 +104,27 @@ router.post("/tx/:id/reject", async (req, res) => {
   await tx.save();
   res.json({ tx });
 });
+
+// Settings (generic key/value). GET returns defaults merged with stored rows.
+router.get("/settings", async (req, res) => {
+  const rows = await Setting.find();
+  const map = { ...DEFAULTS };
+  for (const r of rows) map[r.key] = r.value;
+  res.json({ settings: map });
+});
+router.put("/settings/:key", async (req, res) => {
+  const { value } = req.body || {};
+  const row = await Setting.findOneAndUpdate(
+    { key: req.params.key }, { value }, { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+  res.json({ setting: row });
+});
+
+// Personas (AI community members)
+router.get("/personas", async (req, res) => res.json({ items: await Persona.find().sort({ createdAt: -1 }) }));
+router.post("/personas", async (req, res) => res.json({ item: await Persona.create(req.body) }));
+router.patch("/personas/:id", async (req, res) => res.json({ item: await Persona.findByIdAndUpdate(req.params.id, req.body, { new: true }) }));
+router.delete("/personas/:id", async (req, res) => { await Persona.findByIdAndDelete(req.params.id); res.json({ ok: true }); });
 
 // Editorial community posting: admin publishes a message through an official
 // Shein staff announcement account (shown to users with a staff badge).

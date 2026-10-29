@@ -10,6 +10,7 @@ export default function Deposit() {
   const [amount, setAmount] = useState("");
   const [chain, setChain] = useState("");
   const [txHash, setTxHash] = useState("");
+  const [slipUrl, setSlipUrl] = useState("");
   const [slip, setSlip] = useState(null);
   const [history, setHistory] = useState([]);
   const [err, setErr] = useState("");
@@ -24,8 +25,8 @@ export default function Deposit() {
     setErr("");
     try {
       const picked = addrs.find(a => a.chain === chain);
-      const d = await api("/api/wallet/deposit", { method: "POST", body: { amount: Number(amount), chain, address: picked?.address, txHash } });
-      setSlip(d.tx); setAmount(""); setTxHash("");
+      const d = await api("/api/wallet/deposit", { method: "POST", body: { amount: Number(amount), chain, address: picked?.address, txHash, slipUrl: slipUrl.trim() || undefined } });
+      setSlip(d.tx); setAmount(""); setTxHash(""); setSlipUrl("");
       api("/api/wallet/history").then(d => setHistory(d.items.filter(x => x.type === "deposit")));
     } catch (e) { setErr(e.message); }
   }
@@ -48,6 +49,7 @@ export default function Deposit() {
           </div>
           <Input label="Amount (USD)" value={amount} onChange={setAmount} type="number" />
           <Input label="Your TX Hash" value={txHash} onChange={setTxHash} />
+          <Input label="Payment Slip URL (optional)" value={slipUrl} onChange={setSlipUrl} />
           {err && <div className="text-red-400 text-sm mt-2">{err}</div>}
           <button className="btn-gold mt-4 w-full" onClick={submit}>SUBMIT DEPOSIT</button>
         </div>

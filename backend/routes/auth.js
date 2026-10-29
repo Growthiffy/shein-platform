@@ -115,6 +115,11 @@ function publicUser(u) {
     investment: u.investment, payoutWallets: u.payoutWallets,
     analyst: { cycleCount: u.analyst?.cycleCount || 0 },
     rewardCredit: u.rewardCredit || 0,
+    communityAccess: {
+      daily:       u.communityAccess?.daily !== false,
+      invest:      u.communityAccess?.invest !== false,
+      mentorRooms: u.communityAccess?.mentorRooms !== false,
+    },
   };
 }
 

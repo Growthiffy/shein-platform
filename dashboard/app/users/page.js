@@ -6,9 +6,10 @@ import { LEVELS, PROFIT_ADJUSTMENTS } from "@/lib/constants";
 
 export default function Users() {
   const [items, setItems] = useState([]);
+  const [mentors, setMentors] = useState([]);
   const [sel, setSel] = useState(null);
   async function load() { const d = await api("/api/admin/users"); setItems(d.items); if (sel) setSel(d.items.find(u => u._id === sel._id) || null); }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); api("/api/admin/mentors").then(d => setMentors(d.items)).catch(() => {}); }, []);
 
   async function save(patch) {
     await api(`/api/admin/users/${sel._id}`, { method: "PATCH", body: patch });
@@ -58,6 +59,28 @@ export default function Users() {
               <NumField label="Daily Salary $" value={sel.dailySalary} onSave={v => save({ dailySalary: Number(v) })} />
 
               <SelectField label="Level" value={sel.level} options={LEVELS.map(l => ({ v: l.key, t: l.name }))} onSave={v => save({ level: v })} />
+
+              <SelectField label="Mentor" value={sel.mentor || ""}
+                options={[{ v: "", t: "— none —" }, ...mentors.map(m => ({ v: m._id, t: m.name }))]}
+                onSave={v => save({ mentor: v || null })} />
+
+              <div className="pt-2">
+                <div className="text-xs text-cream/60">Community access</div>
+                <div className="flex flex-col gap-1 mt-1">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={sel.communityAccess?.daily !== false}
+                      onChange={e => save({ communityAccess: { ...(sel.communityAccess || {}), daily: e.target.checked } })} /> Daily chat
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={sel.communityAccess?.invest !== false}
+                      onChange={e => save({ communityAccess: { ...(sel.communityAccess || {}), invest: e.target.checked } })} /> Invest chat
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={sel.communityAccess?.mentorRooms !== false}
+                      onChange={e => save({ communityAccess: { ...(sel.communityAccess || {}), mentorRooms: e.target.checked } })} /> Mentor rooms
+                  </label>
+                </div>
+              </div>
 
               <div>
                 <div className="text-xs text-cream/60 mt-2">Next product profit adjustment %</div>
