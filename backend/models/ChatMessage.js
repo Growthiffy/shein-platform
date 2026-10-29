@@ -1,14 +1,15 @@
 const mongoose = require("mongoose");
 
-// Community + mentor chat. authorType = "user" | "ai" | "mentor"
+// Community + mentor chat. authorType = "user" | "staff" | "mentor"
+// "staff" = official Shein announcement account posted by an admin.
 const Schema = new mongoose.Schema({
   group:       { type: String, required: true, index: true }, // "daily" | "invest" | mentor:<id>
   user:        { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  authorType:  { type: String, enum: ["user", "ai", "mentor"], default: "user" },
+  authorType:  { type: String, enum: ["user", "staff", "ai", "mentor"], default: "user" },
   authorName:  { type: String },
   authorAvatar:{ type: String },
   text:        { type: String, required: true },
-  canReply:    { type: Boolean, default: true }, // AI persona that only talks, never replies
+  canReply:    { type: Boolean, default: true }, // false = announcement-only account (one-way broadcasts)
 }, { timestamps: true });
 
 module.exports = mongoose.model("ChatMessage", Schema);

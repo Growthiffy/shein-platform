@@ -29,7 +29,7 @@ const UserSchema = new mongoose.Schema({
   analyst: {
     cycleCount:   { type: Number, default: 0 },     // products submitted in current cycle (0-27)
     pendingProduct: { type: mongoose.Schema.Types.ObjectId, ref: "Product", default: null },
-    pendingForcedProfitPct: { type: Number, default: null }, // admin override for next product
+    pendingAdjustedProfitPct: { type: Number, default: null }, // admin-set profit adjustment for next product
   },
 
   // RBAC. `role` is the source of truth; `isAdmin` kept in sync for backward compat.

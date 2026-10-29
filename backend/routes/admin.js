@@ -29,7 +29,7 @@ router.post("/users/:id/reset-cycle", async (req, res) => {
   if (!u) return res.status(404).json({ error: "no user" });
   u.analyst.cycleCount = 0;
   u.analyst.pendingProduct = null;
-  u.analyst.pendingForcedProfitPct = null;
+  u.analyst.pendingAdjustedProfitPct = null;
   await u.save();
   res.json({ user: u });
 });
@@ -44,11 +44,11 @@ router.post("/users/:id/adjust-balance", async (req, res) => {
   res.json({ user: u });
 });
 
-router.post("/users/:id/force-product", async (req, res) => {
+router.post("/users/:id/adjust-next-product", async (req, res) => {
   const { profitPct, productId } = req.body || {};
   const u = await User.findById(req.params.id);
   if (!u) return res.status(404).json({ error: "no user" });
-  u.analyst.pendingForcedProfitPct = profitPct ?? null;
+  u.analyst.pendingAdjustedProfitPct = profitPct ?? null;
   if (productId) u.analyst.pendingProduct = productId;
   await u.save();
   res.json({ user: u });
@@ -101,10 +101,11 @@ router.post("/tx/:id/reject", async (req, res) => {
   res.json({ tx });
 });
 
-// AI community posting (admin posts as a persona)
+// Editorial community posting: admin publishes a message through an official
+// Shein staff announcement account (shown to users with a staff badge).
 router.post("/chat/:group", async (req, res) => {
   const { text, authorName, authorAvatar, canReply = false } = req.body || {};
-  const msg = await ChatMessage.create({ group: req.params.group, authorType: "ai", authorName, authorAvatar, text, canReply });
+  const msg = await ChatMessage.create({ group: req.params.group, authorType: "staff", authorName, authorAvatar, text, canReply });
   res.json({ msg });
 });
 

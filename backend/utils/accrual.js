@@ -40,7 +40,7 @@ async function accrueAndUpgrade(user) {
     }
   }
 
-  // Auto-level upgrade (never downgrade mid-session; admin can override)
+  // Auto-level upgrade (never downgrade mid-session; admin can adjust manually)
   const lvl = levelFor(user.balance);
   if (user.level !== lvl.key) {
     user.level = lvl.key;

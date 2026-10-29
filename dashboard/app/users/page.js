@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Shell from "@/components/Shell";
 import { api } from "@/lib/api";
-import { LEVELS, PROFIT_OVERRIDES } from "@/lib/constants";
+import { LEVELS, PROFIT_ADJUSTMENTS } from "@/lib/constants";
 
 export default function Users() {
   const [items, setItems] = useState([]);
@@ -14,9 +14,9 @@ export default function Users() {
     await api(`/api/admin/users/${sel._id}`, { method: "PATCH", body: patch });
     await load();
   }
-  async function force(profitPct) {
-    await api(`/api/admin/users/${sel._id}/force-product`, { method: "POST", body: { profitPct } });
-    await load(); alert("Next product profit % forced to " + profitPct + "%");
+  async function adjustNext(profitPct) {
+    await api(`/api/admin/users/${sel._id}/adjust-next-product`, { method: "POST", body: { profitPct } });
+    await load(); alert("Next product profit adjustment set to " + profitPct + "%");
   }
   async function resetCycle() {
     if (!confirm("Reset analyst cycle to 0 for this user?")) return;
@@ -60,10 +60,10 @@ export default function Users() {
               <SelectField label="Level" value={sel.level} options={LEVELS.map(l => ({ v: l.key, t: l.name }))} onSave={v => save({ level: v })} />
 
               <div>
-                <div className="text-xs text-cream/60 mt-2">Force next product profit %</div>
+                <div className="text-xs text-cream/60 mt-2">Next product profit adjustment %</div>
                 <div className="flex flex-wrap gap-1 mt-1">
-                  {PROFIT_OVERRIDES.map(p => (
-                    <button key={p} className="btn-ghost text-xs" onClick={() => force(p)}>{p}%</button>
+                  {PROFIT_ADJUSTMENTS.map(p => (
+                    <button key={p} className="btn-ghost text-xs" onClick={() => adjustNext(p)}>{p}%</button>
                   ))}
                 </div>
               </div>

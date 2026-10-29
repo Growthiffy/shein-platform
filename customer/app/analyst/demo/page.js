@@ -10,7 +10,7 @@ const SCENARIOS = [
   { title: "Mid-Level Account", brand: "Dior", name: "Watch", original: 1200, buying: 1176, sale: 1200, profitPct: 2, latest: false,
     tip: "Silver level (deposit ≥ $1000). Higher daily salary + 2% normal." },
   { title: "Negative Window", brand: "Prada", name: "Jacket", original: 900, buying: 918, sale: 900, profitPct: -2, latest: false,
-    tip: "Backend may override profit. Treat as risk-management event; continue cycle." },
+    tip: "Profit may vary with current market signals. Treat as normal variance; continue cycle." },
 ];
 
 export default function Demo() {

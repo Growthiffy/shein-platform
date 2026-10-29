@@ -1,5 +1,5 @@
 // Buying rate generator: slightly below original price, scaled to user balance.
-// Latest-collection products yield larger profit %, picked by backend override when desired.
+// Latest-collection products yield larger profit %, selected server-side by pricing rules.
 const LEVELS = require("../config/levels");
 
 function levelFor(balance) {
@@ -12,8 +12,8 @@ function levelFor(balance) {
 function nextProductForUser(user, product) {
   const lvl = levelFor(user.balance);
   const basePct = product.isLatest ? lvl.latestPct : lvl.normalPct;
-  const forced = user.analyst?.pendingForcedProfitPct;
-  const profitPct = (forced !== null && forced !== undefined) ? forced : basePct;
+  const adjusted = user.analyst?.pendingAdjustedProfitPct;
+  const profitPct = (adjusted !== null && adjusted !== undefined) ? adjusted : basePct;
 
   // Buying rate: small discount so profit % stays coherent with original.
   // salePrice ≈ original; profit = salePrice * profitPct/100 ; buyingRate = salePrice - profit, clamped by balance

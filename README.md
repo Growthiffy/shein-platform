@@ -54,10 +54,12 @@ Email verification:
   - Silver:   salary $500/day · 2% / 28% · min $1000
   - Gold:     salary $750/day · 4% / 35% · min $2000
 - **Analyst cycle**: 27 products per cycle. System auto-prices from balance; admin
-  can override next product's profit % (incl. negatives) per user.
+  can set a manual profit adjustment (positive or negative correction) for a user's
+  next product as part of normal risk management.
 - **Invest tiers**: Basic 1%/wk @ $1000 → Royal VIP 30%/wk @ $25000.
 - **Mentor**: one-time pick; change via support (admin edits user).
-- **Community**: `daily` and `invest` groups + per-mentor rooms. Admin can post as AI personas.
+- **Community**: `daily` and `invest` groups + per-mentor rooms. Admin can publish
+  editorial posts via staff announcement accounts (clearly labeled).
 
 ## Routes (backend)
 

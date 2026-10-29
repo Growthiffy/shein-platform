@@ -15,6 +15,6 @@ export const CHAINS = [
 export const BRANDS = ["Vogue", "Gucci", "Zara", "Chanel", "Prada", "Dior", "Versace", "Louis Vuitton", "Burberry", "Hermes"];
 export const PRODUCT_NAMES = ["Tie", "Scarf", "Handbag", "Watch", "Sunglasses", "Belt", "Dress", "Jacket", "Sneakers", "Perfume"];
 
-export const PROFIT_OVERRIDES = [-20, -10, -5, 0, 1.2, 2, 4, 23, 28, 35];
+export const PROFIT_ADJUSTMENTS = [-20, -10, -5, 0, 1.2, 2, 4, 23, 28, 35];
 
 export const COMMUNITY_GROUPS = ["daily", "invest"];

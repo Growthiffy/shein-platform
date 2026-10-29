@@ -27,21 +27,21 @@ export default function CommunityAdmin() {
 
   return (
     <Shell>
-      <h1 className="text-2xl text-gold mb-4">Community · post as persona</h1>
+      <h1 className="text-2xl text-gold mb-4">Community · publish staff announcement</h1>
       <div className="card p-4 max-w-2xl space-y-3">
         <label className="text-sm block">Group
           <select className="w-full mt-1" value={group} onChange={e => setGroup(e.target.value)}>
             {groups.map(g => <option key={g.v} value={g.v}>{g.t}</option>)}
           </select>
         </label>
-        <label className="text-sm block">Persona name
+        <label className="text-sm block">Author name (shown with Staff badge)
           <input className="w-full mt-1" value={authorName} onChange={e => setAuthorName(e.target.value)} placeholder="e.g. Aria C." />
         </label>
         <label className="text-sm block">Message
           <textarea rows={3} className="w-full mt-1" value={text} onChange={e => setText(e.target.value)} />
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={canReply} onChange={e => setCanReply(e.target.checked)} /> persona can reply
+          <input type="checkbox" checked={canReply} onChange={e => setCanReply(e.target.checked)} /> allow replies to this announcement
         </label>
         <button className="btn" onClick={post}>Post</button>
         {msg && <div className="text-cream/60 text-sm">{msg}</div>}

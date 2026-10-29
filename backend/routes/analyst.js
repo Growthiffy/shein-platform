@@ -16,7 +16,7 @@ router.get("/next", auth, async (req, res) => {
   let product = null;
   if (u.analyst.pendingProduct) product = await Product.findById(u.analyst.pendingProduct);
   if (!product) {
-    // random active product; if admin forced a specific product via override, honored by pendingProduct
+    // random active product; if admin pre-selected a specific product, honored by pendingProduct
     const count = await Product.countDocuments({ active: true });
     if (!count) return res.status(503).json({ error: "no products" });
     const skip = Math.floor(Math.random() * count);
@@ -58,7 +58,7 @@ router.post("/submit", auth, async (req, res) => {
   u.totalEarned = +(u.totalEarned + q.profitAmount).toFixed(2);
   u.analyst.cycleCount += 1;
   u.analyst.pendingProduct = null;
-  u.analyst.pendingForcedProfitPct = null;
+  u.analyst.pendingAdjustedProfitPct = null;
   await u.save();
 
   await Transaction.create({ user: u._id, type: "commission", amount: q.profitAmount, note: `Product ${product.brand} ${product.name}` });

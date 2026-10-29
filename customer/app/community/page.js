@@ -52,7 +52,7 @@ export default function Community() {
                 {(m.authorName || "?")[0]?.toUpperCase()}
               </div>
               <div>
-                <div className="text-xs text-cream/50">{m.authorName || "member"} {m.authorType === "ai" && <span className="text-gold">• verified</span>}</div>
+                <div className="text-xs text-cream/50">{m.authorName || "member"} {(m.authorType === "staff" || m.authorType === "ai") && <span className="text-gold">• staff</span>}</div>
                 <div className="text-cream">{m.text}</div>
               </div>
             </div>
