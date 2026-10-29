@@ -16,4 +16,5 @@ module.exports.INVEST_TIERS = [
 ];
 
 module.exports.SIGNUP_REWARD = 20;
+module.exports.REFERRAL_BONUS = 10; // credited to referrer when their invitee verifies
 module.exports.PRODUCTS_PER_CYCLE = 27;

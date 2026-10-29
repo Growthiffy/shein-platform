@@ -8,16 +8,107 @@ const Mentor = require("../models/Mentor");
 const ChatMessage = require("../models/ChatMessage");
 const Setting = require("../models/Setting");
 const Persona = require("../models/Persona");
+const LoginHistory = require("../models/LoginHistory");
+const SupportMessage = require("../models/SupportMessage");
 const { DEFAULTS } = require("../utils/settings");
 
 router.use(auth, admin);
+
+// Dashboard stats.
+router.get("/stats", async (req, res) => {
+  const [users, verified, pendingDeposits, pendingWithdrawals, personas, openSupport] = await Promise.all([
+    User.countDocuments(),
+    User.countDocuments({ emailVerified: true }),
+    Transaction.countDocuments({ type: "deposit", status: "pending" }),
+    Transaction.countDocuments({ type: "withdrawal", status: "pending" }),
+    Persona.countDocuments({ active: true }),
+    SupportMessage.countDocuments({ from: "user", readByStaff: false }),
+  ]);
+  const agg = await Transaction.aggregate([
+    { $match: { type: { $in: ["deposit"] }, status: "approved" } },
+    { $group: { _id: null, total: { $sum: "$amount" } } },
+  ]);
+  const balAgg = await User.aggregate([{ $group: { _id: null, total: { $sum: "$balance" } } }]);
+  res.json({
+    stats: {
+      users, verified,
+      pendingDeposits, pendingWithdrawals,
+      activePersonas: personas, openSupport,
+      depositVolume: agg[0]?.total || 0,
+      totalBalances: +(balAgg[0]?.total || 0).toFixed(2),
+    },
+  });
+});
+
+// Login history (all members).
+router.get("/login-history", async (req, res) => {
+  const items = await LoginHistory.find().sort({ createdAt: -1 }).limit(300).populate("user", "email username accountNumber");
+  res.json({ items });
+});
+
+// Top referrers.
+router.get("/referrals", async (req, res) => {
+  const rows = await User.aggregate([
+    { $match: { referredBy: { $ne: null } } },
+    { $group: { _id: "$referredBy", count: { $sum: 1 }, verified: { $sum: { $cond: ["$emailVerified", 1, 0] } } } },
+    { $sort: { count: -1 } }, { $limit: 100 },
+  ]);
+  const ids = rows.map(r => r._id);
+  const users = await User.find({ _id: { $in: ids } }).select("email username referralCode accountNumber");
+  const byId = Object.fromEntries(users.map(u => [String(u._id), u]));
+  res.json({ items: rows.map(r => ({
+    user: byId[String(r._id)] ? { email: byId[String(r._id)].email, username: byId[String(r._id)].username, code: byId[String(r._id)].referralCode } : null,
+    invited: r.count, verified: r.verified,
+  })) });
+});
+
+// Support: list threads (one row per member with messages), newest activity first.
+router.get("/support", async (req, res) => {
+  const rows = await SupportMessage.aggregate([
+    { $sort: { createdAt: -1 } },
+    { $group: {
+      _id: "$user",
+      last: { $first: "$text" }, lastAt: { $first: "$createdAt" },
+      unread: { $sum: { $cond: [{ $and: [{ $eq: ["$from", "user"] }, { $eq: ["$readByStaff", false] }] }, 1, 0] } },
+    } },
+    { $sort: { lastAt: -1 } }, { $limit: 200 },
+  ]);
+  const users = await User.find({ _id: { $in: rows.map(r => r._id) } }).select("email username accountNumber");
+  const byId = Object.fromEntries(users.map(u => [String(u._id), u]));
+  res.json({ items: rows.map(r => ({
+    userId: r._id, email: byId[String(r._id)]?.email, username: byId[String(r._id)]?.username,
+    last: r.last, lastAt: r.lastAt, unread: r.unread,
+  })) });
+});
+router.get("/support/:userId", async (req, res) => {
+  const items = await SupportMessage.find({ user: req.params.userId }).sort({ createdAt: 1 }).limit(300);
+  await SupportMessage.updateMany({ user: req.params.userId, from: "user", readByStaff: false }, { readByStaff: true });
+  res.json({ items });
+});
+router.post("/support/:userId", async (req, res) => {
+  const { text } = req.body || {};
+  if (!text?.trim()) return res.status(400).json({ error: "empty" });
+  const msg = await SupportMessage.create({ user: req.params.userId, from: "staff", text: text.trim(), readByUser: false });
+  res.json({ msg });
+});
+
+// Push an in-app notification to a user.
+router.post("/users/:id/notify", async (req, res) => {
+  const { text, type } = req.body || {};
+  if (!text?.trim()) return res.status(400).json({ error: "text required" });
+  const u = await User.findById(req.params.id);
+  if (!u) return res.status(404).json({ error: "no user" });
+  u.notifications.push({ text: text.trim(), type: type || "info" });
+  await u.save();
+  res.json({ ok: true });
+});
 
 // Users
 router.get("/users", async (req, res) => res.json({ items: await User.find().sort({ createdAt: -1 }).limit(500) }));
 
 // Only these fields may be set through the admin edit form. This blocks
 // mass-assignment of passwordHash, email, verifyCode, etc. via raw req.body.
-const USER_EDITABLE = ["balance", "dailySalary", "level", "username", "emailVerified", "role", "isAdmin", "mentor", "rewardCredit", "totalEarned", "communityAccess"];
+const USER_EDITABLE = ["balance", "dailySalary", "level", "username", "emailVerified", "role", "isAdmin", "mentor", "rewardCredit", "totalEarned", "communityAccess", "creditScore", "phone"];
 router.patch("/users/:id", async (req, res) => {
   const u = await User.findById(req.params.id);
   if (!u) return res.status(404).json({ error: "no user" });

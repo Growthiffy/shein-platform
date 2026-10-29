@@ -27,19 +27,35 @@ export default function Landing() {
         </div>
       ))}
 
-      <nav className="relative z-10 flex items-center justify-between px-8 py-6">
+      <nav className="relative z-10 flex items-center justify-between px-6 md:px-8 py-6">
         <div className="font-display text-3xl tracking-widest text-gold">SHEIN</div>
-        <div className="text-xs tracking-[0.3em] text-cream/70">LUXURY · ANALYSIS · GROWTH</div>
+        <div className="flex items-center gap-4">
+          <span className="hidden sm:block text-xs tracking-[0.3em] text-cream/70">LUXURY · ANALYSIS · GROWTH</span>
+          <Link href="/auth" className="btn-outline py-2 px-4 text-sm">Sign In</Link>
+        </div>
       </nav>
 
-      <section className="relative z-10 flex flex-col items-center justify-center text-center px-6" style={{minHeight:"72vh"}}>
-        <h1 className="font-display text-6xl md:text-8xl text-cream fadein" style={{textShadow:"0 10px 40px rgba(0,0,0,.6)"}}>
+      <section className="relative z-10 flex flex-col items-center justify-center text-center px-6" style={{minHeight:"66vh"}}>
+        <h1 className="font-display text-5xl md:text-8xl text-cream fadein" style={{textShadow:"0 10px 40px rgba(0,0,0,.6)"}}>
           Curated. <span className="text-gold">Analyzed.</span> Rewarded.
         </h1>
-        <p className="mt-6 max-w-xl text-cream/80 fadein">
+        <p className="mt-6 max-w-xl text-cream/80 fadein-2">
           A members-only platform for product analysts and investors in the world of modern fashion.
         </p>
-        <Link href="/auth" className="btn-gold mt-10 fadein">BEGIN YOUR JOURNEY</Link>
+        <Link href="/auth" className="btn-gold mt-10 fadein-3">BEGIN YOUR JOURNEY</Link>
+      </section>
+
+      <section className="relative z-10 mx-auto max-w-5xl grid gap-4 sm:grid-cols-3 px-6 pb-10 fadein-3">
+        {[
+          ["Analyze", "Review curated products daily and earn commission on every submission."],
+          ["Invest", "Lock funds across seven tiers for hands-off weekly returns."],
+          ["Grow", "Level up for higher rates, invite friends, and climb the ladder."],
+        ].map(([t, d]) => (
+          <div key={t} className="card p-5 text-left">
+            <div className="font-display text-xl text-gold">{t}</div>
+            <p className="text-sm text-cream/70 mt-1">{d}</p>
+          </div>
+        ))}
       </section>
 
       <footer className="relative z-10 text-center text-xs tracking-widest text-cream/50 py-6">

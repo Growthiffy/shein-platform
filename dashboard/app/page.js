@@ -13,17 +13,17 @@ export default function Login() {
     try {
       const d = await api("/api/auth/login", { method: "POST", body: { email, password } });
       if (!(d.user.isAdmin || d.user.role === "admin")) { setErr("not an admin account"); return; }
-      setToken(d.token); r.push("/users");
+      setToken(d.token); r.push("/overview");
     } catch (e) { setErr(e.message); }
   }
   return (
-    <main className="min-h-screen flex items-center justify-center bg-ink">
+    <main className="min-h-screen flex flex-col items-center justify-center bg-ink px-4" style={{backgroundImage:"radial-gradient(ellipse at top, rgba(201,162,74,.1), transparent 60%)"}}>
+      <div className="font-display text-3xl tracking-widest text-gold mb-6">SHEIN · Admin</div>
       <form onSubmit={submit} className="card p-8 w-full max-w-sm space-y-3">
-        <h1 className="text-2xl text-gold">Shein Admin</h1>
-        <input placeholder="admin email" value={email} onChange={e => setEmail(e.target.value)} className="w-full" />
-        <input type="password" placeholder="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full" />
+        <label className="label block">Email<input placeholder="admin@shein.local" value={email} onChange={e => setEmail(e.target.value)} className="w-full mt-1" /></label>
+        <label className="label block">Password<input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} className="w-full mt-1" /></label>
         {err && <div className="text-red-400 text-sm">{err}</div>}
-        <button className="btn w-full">Sign In</button>
+        <button className="btn w-full mt-1">Sign In</button>
       </form>
     </main>
   );

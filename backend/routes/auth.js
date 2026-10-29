@@ -2,14 +2,31 @@ const router = require("express").Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const Counter = require("../models/Counter");
+const LoginHistory = require("../models/LoginHistory");
+const Transaction = require("../models/Transaction");
 const { sendVerificationCode, mailConfigured } = require("../utils/mailer");
-const { SIGNUP_REWARD } = require("../config/levels");
+const { SIGNUP_REWARD, REFERRAL_BONUS } = require("../config/levels");
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const isProd = process.env.NODE_ENV === "production" || !!process.env.VERCEL;
 
 function makeCode() { return String(Math.floor(100000 + Math.random() * 900000)); }
 function sign(u) { return jwt.sign({ id: u._id.toString() }, process.env.JWT_SECRET, { expiresIn: "30d" }); }
+
+// Unique short invite code.
+async function makeReferralCode() {
+  for (let i = 0; i < 6; i++) {
+    const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+    if (!(await User.findOne({ referralCode: code }))) return code;
+  }
+  return Math.random().toString(36).slice(2, 10).toUpperCase();
+}
+
+function recordLogin(user, req) {
+  const ip = (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.ip;
+  LoginHistory.create({ user: user._id, ip, userAgent: req.headers["user-agent"] }).catch(() => {});
+}
 
 // Deliver a verification code. Returns {sent, devCode}. Throws only if a mail
 // provider is configured but delivery fails (so we never claim a false success).
@@ -21,7 +38,7 @@ async function deliverCode(email, code) {
 }
 
 router.post("/signup", async (req, res) => {
-  const { email: rawEmail, password } = req.body || {};
+  const { email: rawEmail, password, ref } = req.body || {};
   const email = String(rawEmail || "").trim().toLowerCase();
   if (!email || !password) return res.status(400).json({ error: "email + password required" });
   if (!EMAIL_RE.test(email)) return res.status(400).json({ error: "invalid email" });
@@ -39,6 +56,11 @@ router.post("/signup", async (req, res) => {
   user.verifyCode = code;
   user.verifyExpires = expires;
   user.rewardCredit = SIGNUP_REWARD;
+  // Attach referrer once (only before the invitee has verified).
+  if (ref && !user.emailVerified && !user.referredBy) {
+    const referrer = await User.findOne({ referralCode: String(ref).trim().toUpperCase() });
+    if (referrer && String(referrer._id) !== String(user._id)) user.referredBy = referrer._id;
+  }
   await user.save();
 
   let delivery;
@@ -70,7 +92,24 @@ router.post("/verify", async (req, res) => {
     user.balance = user.rewardCredit;
     user.rewardCredit = 0;
   }
+  // Assign a member number + referral code on first verify.
+  if (!user.accountNumber) user.accountNumber = await Counter.next("accountNumber");
+  if (!user.referralCode) user.referralCode = await makeReferralCode();
   await user.save();
+
+  // Credit the referrer once, when their invitee verifies.
+  if (user.referredBy) {
+    const referrer = await User.findById(user.referredBy);
+    if (referrer) {
+      referrer.balance = +(referrer.balance + REFERRAL_BONUS).toFixed(2);
+      referrer.totalEarned = +(referrer.totalEarned + REFERRAL_BONUS).toFixed(2);
+      referrer.notifications.push({ text: `You earned $${REFERRAL_BONUS} — an invite joined and verified.`, type: "success" });
+      await referrer.save();
+      await Transaction.create({ user: referrer._id, type: "reward", amount: REFERRAL_BONUS, note: "referral bonus" });
+    }
+  }
+
+  recordLogin(user, req);
   res.json({ token: sign(user), user: publicUser(user) });
 });
 
@@ -82,8 +121,11 @@ router.post("/login", async (req, res) => {
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return res.status(401).json({ error: "bad credentials" });
   if (!user.emailVerified) return res.status(403).json({ error: "verify email first", needsVerification: true });
+  recordLogin(user, req);
   res.json({ token: sign(user), user: publicUser(user) });
 });
+
+router.post("/logout", (req, res) => res.json({ ok: true })); // token is cleared client-side
 
 router.post("/resend", async (req, res) => {
   const { email: rawEmail } = req.body || {};
@@ -115,6 +157,10 @@ function publicUser(u) {
     investment: u.investment, payoutWallets: u.payoutWallets,
     analyst: { cycleCount: u.analyst?.cycleCount || 0 },
     rewardCredit: u.rewardCredit || 0,
+    accountNumber: u.accountNumber, phone: u.phone, avatar: u.avatar,
+    creditScore: u.creditScore ?? 100, referralCode: u.referralCode,
+    createdAt: u.createdAt,
+    notifications: (u.notifications || []).slice(-30).reverse(),
     communityAccess: {
       daily:       u.communityAccess?.daily !== false,
       invest:      u.communityAccess?.invest !== false,

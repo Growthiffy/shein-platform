@@ -15,6 +15,24 @@ const UserSchema = new mongoose.Schema({
   totalEarned:  { type: Number, default: 0 },
   lastSalaryAt: { type: Date },                   // last daily-salary accrual timestamp
 
+  // Profile
+  accountNumber: { type: Number, index: true },   // sequential member number (assigned on verify)
+  phone:        { type: String },
+  avatar:       { type: String },                 // avatar image URL
+  creditScore:  { type: Number, default: 100 },   // trust/credibility score (admin-adjustable)
+
+  // Referral
+  referralCode: { type: String, index: true },    // this user's own invite code
+  referredBy:   { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+
+  // In-app notifications (newest last)
+  notifications: [{
+    text: { type: String, required: true },
+    type: { type: String, enum: ["info", "success", "warning", "error"], default: "info" },
+    read: { type: Boolean, default: false },
+    createdAt: { type: Date, default: Date.now },
+  }],
+
   mentor:       { type: mongoose.Schema.Types.ObjectId, ref: "Mentor", default: null },
 
   investment: {
