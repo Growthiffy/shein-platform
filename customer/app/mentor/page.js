@@ -70,8 +70,8 @@ function Body() {
             <div ref={box} className="h-[55vh] overflow-y-auto space-y-3 pr-1">
               {msgs.map(m => (
                 <div key={m._id} className={`flex ${m.authorType === "user" ? "justify-end" : ""}`}>
-                  <div className={`px-3 py-2 rounded-xl max-w-[75%] ${m.authorType === "user" ? "gold-grad text-black" : "bg-white/5 border border-gold/15"}`}>
-                    <div className={`text-xs mb-1 ${m.authorType === "user" ? "text-black/50" : "text-cream/50"}`}>{m.authorName || (m.authorType === "user" ? "you" : picked.name)}</div>
+                  <div className={`px-3 py-2 rounded-xl max-w-[75%] ${m.authorType === "user" ? "gold-grad text-white" : "bg-black/[0.04] border border-gold/15"}`}>
+                    <div className={`text-xs mb-1 ${m.authorType === "user" ? "text-white/50" : "text-cream/50"}`}>{m.authorName || (m.authorType === "user" ? "you" : picked.name)}</div>
                     <div>{m.text}</div>
                   </div>
                 </div>

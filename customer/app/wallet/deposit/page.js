@@ -39,7 +39,7 @@ function Body() {
             {addrs.map(a => <option key={a._id} value={a.chain}>{a.chain}</option>)}
           </select>
         </label>
-        <div className="mt-3 p-3 bg-black/40 rounded-lg border border-gold/10">
+        <div className="mt-3 p-3 bg-ink2 rounded-lg border border-gold/10">
           <div className="label">Company Address</div>
           <div className="break-all text-sm text-gold mt-1">{addrs.find(a => a.chain === chain)?.address || "—"}</div>
         </div>
@@ -54,7 +54,7 @@ function Body() {
         <h3 className="font-display text-xl text-gold">Receipt</h3>
         {slip ? <Slip tx={slip} /> : <p className="text-cream/60 text-sm mt-2">A professional slip appears here after you submit.</p>}
         <h4 className="label mt-6">History</h4>
-        <div className="mt-2 divide-y divide-white/5">
+        <div className="mt-2 divide-y divide-black/[0.06]">
           {history.map(h => (
             <div key={h._id} className="py-2 text-sm flex justify-between">
               <span>{new Date(h.createdAt).toLocaleDateString()} · {h.chain}</span>
@@ -74,7 +74,7 @@ function Input({ label, value, onChange, type = "text" }) {
 }
 function Slip({ tx }) {
   return (
-    <div className="mt-3 border border-gold/40 rounded-xl p-4 bg-gradient-to-br from-black to-gold/5">
+    <div className="mt-3 border border-gold/40 rounded-xl p-4 bg-gradient-to-br from-ink2 to-gold2/10">
       <div className="text-center font-display text-gold text-lg">SHEIN · DEPOSIT RECEIPT</div>
       <div className="text-center text-xs text-cream/50 tracking-widest">TX {String(tx._id).slice(-10).toUpperCase()}</div>
       <div className="mt-3 text-sm space-y-1">

@@ -23,12 +23,15 @@ function Body() {
 
   return (
     <div className="page">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="label">Welcome back</div>
-          <h1 className="font-display text-3xl md:text-4xl text-gold">{me.username || me.email.split("@")[0]}</h1>
+      {/* hero banner */}
+      <div className="relative overflow-hidden rounded-2xl fadein">
+        <img src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600&q=80" alt="" className="h-40 md:h-52 w-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/40 to-transparent" />
+        <div className="absolute inset-0 flex flex-col justify-center px-6 md:px-10">
+          <div className="text-xs tracking-[0.3em] text-white/70">WELCOME BACK</div>
+          <div className="font-display text-3xl md:text-4xl text-white">{me.username || me.email.split("@")[0]}</div>
+          <div className="mt-1"><span className="inline-flex items-center gap-1 rounded-full bg-white/15 backdrop-blur px-3 py-1 text-xs text-white"><Crown size={12} /> {me.level}</span></div>
         </div>
-        <span className="chip"><Crown size={12} /> {me.level}</span>
       </div>
 
       {/* balance strip */}

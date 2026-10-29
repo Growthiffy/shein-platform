@@ -42,7 +42,7 @@ function Body() {
         <div className="flex gap-2">
           {visible.map(g => (
             <button key={g.id} onClick={() => setGroup(g.id)}
-              className={`px-4 py-1.5 rounded-full text-sm transition ${g.id === group ? "gold-grad text-black font-semibold" : "border border-gold/30 text-cream/70 hover:text-gold"}`}>
+              className={`px-4 py-1.5 rounded-full text-sm transition ${g.id === group ? "gold-grad text-white font-semibold" : "border border-gold/30 text-cream/70 hover:text-gold"}`}>
               {g.label}
             </button>
           ))}

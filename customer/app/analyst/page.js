@@ -65,12 +65,12 @@ function ProductCard({ next, comment, setComment, onSubmit, busy, err }) {
   return (
     <div className="grid md:grid-cols-2 gap-6">
       <div className="card p-6 fadein">
-        <div className="aspect-square bg-black/40 rounded-xl overflow-hidden">
+        <div className="aspect-square bg-ink2 rounded-xl overflow-hidden">
           {p.image && <img src={p.image} alt="" className="w-full h-full object-cover" />}
         </div>
         <div className="mt-4 flex items-center justify-between">
           <div><div className="label">Brand</div><div className="font-display text-2xl text-gold">{p.brand}</div></div>
-          {p.isLatest && <span className="chip gold-grad text-black border-none font-semibold">LATEST</span>}
+          {p.isLatest && <span className="chip gold-grad text-white border-none font-semibold">LATEST</span>}
         </div>
         <div className="mt-2"><div className="label">Product</div><div className="text-xl">{p.name}</div></div>
       </div>
@@ -97,7 +97,7 @@ function ProductCard({ next, comment, setComment, onSubmit, busy, err }) {
 
 function Line({ label, value, highlight, big }) {
   return (
-    <div className={`p-3 rounded-lg bg-black/30 border ${highlight ? "border-gold/40" : "border-white/5"}`}>
+    <div className={`p-3 rounded-lg bg-ink2 border ${highlight ? "border-gold/40" : "border-line"}`}>
       <div className="label">{label}</div>
       <div className={big ? "text-2xl text-gold font-semibold" : "text-base"}>{value}</div>
     </div>
@@ -107,7 +107,7 @@ function Line({ label, value, highlight, big }) {
 function History({ items }) {
   if (!items.length) return <div className="mt-6 card p-6 text-cream/60">No submissions yet.</div>;
   return (
-    <div className="mt-6 card divide-y divide-white/5">
+    <div className="mt-6 card divide-y divide-black/[0.06]">
       {items.map(it => (
         <div key={it._id} className="p-4 flex items-center justify-between">
           <div>

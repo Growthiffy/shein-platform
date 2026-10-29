@@ -46,7 +46,7 @@ function Body() {
         <div className="mt-2 space-y-2">
           {me.payoutWallets?.map((w, i) => (
             <button key={i} onClick={() => { setChain(w.chain); setAddress(w.address); }}
-              className="w-full text-left p-2 rounded border border-white/10 hover:border-gold/40">
+              className="w-full text-left p-2 rounded border border-line hover:border-gold/40">
               <div className="text-xs text-cream/50">{w.chain} · {w.label || "wallet"}</div>
               <div className="text-sm text-cream break-all">{w.address}</div>
             </button>
@@ -73,7 +73,7 @@ function Body() {
       <div className="card p-6">
         <h3 className="font-display text-xl text-gold">Receipt</h3>
         {receipt ? (
-          <div className="mt-3 border border-gold/40 rounded-xl p-4 bg-gradient-to-br from-black to-gold/5 text-sm">
+          <div className="mt-3 border border-gold/40 rounded-xl p-4 bg-gradient-to-br from-ink2 to-gold2/10 text-sm">
             <div className="text-center font-display text-gold">SHEIN · WITHDRAWAL</div>
             <div className="text-center text-xs text-cream/50 tracking-widest">TX {String(receipt._id).slice(-10).toUpperCase()}</div>
             <div className="mt-3 space-y-1">
@@ -85,7 +85,7 @@ function Body() {
         ) : <p className="text-cream/60 text-sm mt-2">Submit a withdrawal to see a receipt.</p>}
 
         <h4 className="label mt-6">History</h4>
-        <div className="mt-2 divide-y divide-white/5">
+        <div className="mt-2 divide-y divide-black/[0.06]">
           {history.map(h => (
             <div key={h._id} className="py-2 text-sm flex justify-between">
               <span>{new Date(h.createdAt).toLocaleDateString()} · {h.chain}</span>

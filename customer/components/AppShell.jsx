@@ -49,7 +49,7 @@ export default function AppShell({ children }) {
       <div className="min-h-screen bg-ink text-cream">
         {/* top bar */}
         <header className="sticky top-0 z-40 border-b border-gold/10 bg-ink/85 backdrop-blur">
-          <div className="mx-auto max-w-6xl px-4 md:px-6 h-16 flex items-center justify-between gap-4">
+          <div className="mx-auto max-w-[88rem] px-4 md:px-6 h-16 flex items-center justify-between gap-4">
             <Link href="/dashboard" className="font-display text-2xl tracking-widest text-gold">SHEIN</Link>
 
             <nav className="hidden md:flex items-center gap-1">
@@ -57,7 +57,7 @@ export default function AppShell({ children }) {
                 const Icon = n.icon; const on = path === n.href || (n.href !== "/dashboard" && path.startsWith(n.href));
                 return (
                   <Link key={n.href} href={n.href}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-full text-sm transition ${on ? "bg-gold/15 text-gold" : "text-cream/70 hover:text-gold"}`}>
+                    className={`flex items-center gap-2 px-3 py-2 rounded-full text-sm transition ${on ? "bg-gold2/10 text-gold2" : "text-cream/70 hover:text-cream"}`}>
                     <Icon size={16} /> {n.label}
                   </Link>
                 );
@@ -71,14 +71,14 @@ export default function AppShell({ children }) {
               <div className="relative">
                 <button onClick={readNotifs} className="relative grid h-9 w-9 place-items-center rounded-full border border-gold/20 hover:border-gold/50">
                   <Bell size={16} />
-                  {unread > 0 && <span className="absolute -top-1 -right-1 grid h-4 min-w-4 place-items-center rounded-full gold-grad text-[10px] font-bold text-black px-1">{unread}</span>}
+                  {unread > 0 && <span className="absolute -top-1 -right-1 grid h-4 min-w-4 place-items-center rounded-full gold-grad text-[10px] font-bold text-white px-1">{unread}</span>}
                 </button>
                 {bell && (
                   <div className="absolute right-0 mt-2 w-72 max-h-96 overflow-y-auto card p-2 z-50">
                     <div className="label px-2 py-1">Notifications</div>
                     {(me.notifications || []).length === 0 && <div className="text-cream/50 text-sm px-2 py-3">Nothing yet.</div>}
                     {(me.notifications || []).map((n, i) => (
-                      <div key={i} className="px-2 py-2 rounded-lg hover:bg-white/5">
+                      <div key={i} className="px-2 py-2 rounded-lg hover:bg-black/[0.04]">
                         <div className="text-sm text-cream">{n.text}</div>
                         <div className="text-[11px] text-cream/40">{new Date(n.createdAt).toLocaleString()}</div>
                       </div>
@@ -86,7 +86,7 @@ export default function AppShell({ children }) {
                   </div>
                 )}
               </div>
-              <Link href="/profile" className="grid h-9 w-9 place-items-center rounded-full gold-grad text-black font-display font-bold">
+              <Link href="/profile" className="grid h-9 w-9 place-items-center rounded-full gold-grad text-white font-display font-bold">
                 {(me.username || me.email)[0]?.toUpperCase()}
               </Link>
               <button onClick={logout} title="Sign out" className="hidden md:grid h-9 w-9 place-items-center rounded-full border border-gold/20 hover:border-gold/50"><LogOut size={15} /></button>
@@ -102,7 +102,7 @@ export default function AppShell({ children }) {
             {NAV.map(n => {
               const Icon = n.icon; const on = path === n.href || (n.href !== "/dashboard" && path.startsWith(n.href));
               return (
-                <Link key={n.href} href={n.href} className={`flex flex-col items-center gap-1 py-2.5 text-[11px] ${on ? "text-gold" : "text-cream/55"}`}>
+                <Link key={n.href} href={n.href} className={`flex flex-col items-center gap-1 py-2.5 text-[11px] ${on ? "text-gold2" : "text-cream/55"}`}>
                   <Icon size={19} /> {n.label}
                 </Link>
               );
