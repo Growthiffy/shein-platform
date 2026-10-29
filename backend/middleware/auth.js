@@ -17,7 +17,8 @@ async function auth(req, res, next) {
 }
 
 function admin(req, res, next) {
-  if (!req.user?.isAdmin) return res.status(403).json({ error: "forbidden" });
+  const u = req.user;
+  if (!u || (u.role !== "admin" && !u.isAdmin)) return res.status(403).json({ error: "forbidden" });
   next();
 }
 

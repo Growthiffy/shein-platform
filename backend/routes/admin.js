@@ -11,8 +11,17 @@ router.use(auth, admin);
 
 // Users
 router.get("/users", async (req, res) => res.json({ items: await User.find().sort({ createdAt: -1 }).limit(500) }));
+
+// Only these fields may be set through the admin edit form. This blocks
+// mass-assignment of passwordHash, email, verifyCode, etc. via raw req.body.
+const USER_EDITABLE = ["balance", "dailySalary", "level", "username", "emailVerified", "role", "isAdmin", "mentor", "rewardCredit", "totalEarned"];
 router.patch("/users/:id", async (req, res) => {
-  const u = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  const u = await User.findById(req.params.id);
+  if (!u) return res.status(404).json({ error: "no user" });
+  for (const k of USER_EDITABLE) {
+    if (k in (req.body || {})) u[k] = req.body[k];
+  }
+  await u.save(); // pre-save hook keeps role <-> isAdmin in sync
   res.json({ user: u });
 });
 router.post("/users/:id/reset-cycle", async (req, res) => {

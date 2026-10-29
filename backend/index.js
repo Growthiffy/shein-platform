@@ -12,10 +12,14 @@ app.use(express.json({ limit: "4mb" }));
 
 const origins = (process.env.CORS_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean);
 const corsCheck = (origin, cb) => {
-  if (!origin) return cb(null, true);
-  if (!origins.length) return cb(null, true);
+  if (!origin) return cb(null, true); // non-browser clients (curl, server-to-server)
   if (origins.includes(origin)) return cb(null, true);
-  try { const h = new URL(origin).hostname; if (h.endsWith(".vercel.app")) return cb(null, true); } catch {}
+  try {
+    const h = new URL(origin).hostname;
+    // Always trust localhost (dev) and the project's Vercel deployments.
+    if (h === "localhost" || h === "127.0.0.1") return cb(null, true);
+    if (h.endsWith(".vercel.app")) return cb(null, true);
+  } catch {}
   cb(null, false);
 };
 app.use(cors({ origin: corsCheck, credentials: true }));

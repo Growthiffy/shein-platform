@@ -36,11 +36,13 @@ export default function Users() {
       <div className="grid grid-cols-3 gap-4">
         <div className="card overflow-x-auto col-span-2">
           <table>
-            <thead><tr className="text-cream/60"><th>Email</th><th>Username</th><th>Balance</th><th>Level</th><th>Cycle</th><th>Verified</th></tr></thead>
+            <thead><tr className="text-cream/60"><th>Email</th><th>Username</th><th>Role</th><th>Balance</th><th>Level</th><th>Cycle</th><th>Verified</th></tr></thead>
             <tbody>
               {items.map(u => (
                 <tr key={u._id} className="cursor-pointer hover:bg-white/5" onClick={() => setSel(u)}>
-                  <td>{u.email}</td><td>{u.username || "-"}</td><td>${(u.balance ?? 0).toFixed(2)}</td>
+                  <td>{u.email}</td><td>{u.username || "-"}</td>
+                  <td>{(u.role || (u.isAdmin ? "admin" : "customer"))}</td>
+                  <td>${(u.balance ?? 0).toFixed(2)}</td>
                   <td>{u.level}</td><td>{u.analyst?.cycleCount ?? 0}/27</td><td>{u.emailVerified ? "✓" : "—"}</td>
                 </tr>
               ))}

@@ -32,7 +32,16 @@ const UserSchema = new mongoose.Schema({
     pendingForcedProfitPct: { type: Number, default: null }, // admin override for next product
   },
 
+  // RBAC. `role` is the source of truth; `isAdmin` kept in sync for backward compat.
+  role:    { type: String, enum: ["customer", "admin"], default: "customer" },
   isAdmin: { type: Boolean, default: false },
 }, { timestamps: true });
+
+// Keep role <-> isAdmin consistent regardless of which field a writer sets.
+UserSchema.pre("save", function (next) {
+  if (this.isModified("role")) this.isAdmin = this.role === "admin";
+  else if (this.isModified("isAdmin")) this.role = this.isAdmin ? "admin" : "customer";
+  next();
+});
 
 module.exports = mongoose.model("User", UserSchema);

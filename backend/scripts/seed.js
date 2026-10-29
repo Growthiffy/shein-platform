@@ -16,7 +16,8 @@ async function main() {
     await User.create({
       email: "admin@shein.local",
       passwordHash: await bcrypt.hash("admin123", 10),
-      emailVerified: true, isAdmin: true, username: "admin", balance: 0,
+      emailVerified: true, role: "admin", isAdmin: true,
+      username: "admin", balance: 0, rewardCredit: 0,
     });
     console.log("admin created: admin@shein.local / admin123");
   }
