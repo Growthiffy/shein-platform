@@ -62,34 +62,59 @@ router.get("/referrals", async (req, res) => {
   })) });
 });
 
-// Support: list threads (one row per member with messages), newest activity first.
+// Support: list threads. `status` = active | ended | all (default all). A thread
+// is ended if its most recent message is marked closed.
 router.get("/support", async (req, res) => {
   const rows = await SupportMessage.aggregate([
     { $sort: { createdAt: -1 } },
     { $group: {
       _id: "$user",
-      last: { $first: "$text" }, lastAt: { $first: "$createdAt" },
+      last: { $first: "$text" }, lastAt: { $first: "$createdAt" }, ended: { $first: "$closed" },
       unread: { $sum: { $cond: [{ $and: [{ $eq: ["$from", "user"] }, { $eq: ["$readByStaff", false] }] }, 1, 0] } },
     } },
-    { $sort: { lastAt: -1 } }, { $limit: 200 },
+    { $sort: { lastAt: -1 } }, { $limit: 300 },
   ]);
-  const users = await User.find({ _id: { $in: rows.map(r => r._id) } }).select("email username accountNumber");
+  const want = req.query.status;
+  const filtered = want === "active" ? rows.filter(r => !r.ended)
+    : want === "ended" ? rows.filter(r => r.ended) : rows;
+  const users = await User.find({ _id: { $in: filtered.map(r => r._id) } }).select("email username accountNumber");
   const byId = Object.fromEntries(users.map(u => [String(u._id), u]));
-  res.json({ items: rows.map(r => ({
+  res.json({ items: filtered.map(r => ({
     userId: r._id, email: byId[String(r._id)]?.email, username: byId[String(r._id)]?.username,
-    last: r.last, lastAt: r.lastAt, unread: r.unread,
+    accountNumber: byId[String(r._id)]?.accountNumber,
+    last: r.last, lastAt: r.lastAt, unread: r.unread, ended: !!r.ended,
   })) });
 });
 router.get("/support/:userId", async (req, res) => {
   const items = await SupportMessage.find({ user: req.params.userId }).sort({ createdAt: 1 }).limit(300);
   await SupportMessage.updateMany({ user: req.params.userId, from: "user", readByStaff: false }, { readByStaff: true });
-  res.json({ items });
+  const last = items[items.length - 1];
+  res.json({ items, ended: !!(last && last.closed) });
 });
 router.post("/support/:userId", async (req, res) => {
-  const { text } = req.body || {};
-  if (!text?.trim()) return res.status(400).json({ error: "empty" });
-  const msg = await SupportMessage.create({ user: req.params.userId, from: "staff", text: text.trim(), readByUser: false });
+  const text = String(req.body?.text || "").replace(/\r\n/g, "\n").trim();
+  if (!text) return res.status(400).json({ error: "empty" });
+  if (text.length > 4000) return res.status(400).json({ error: "message too long" });
+  const msg = await SupportMessage.create({ user: req.params.userId, from: "staff", text, closed: false, readByUser: false });
   res.json({ msg });
+});
+// End (archive) a thread: mark everything closed + drop a system note + notify member.
+router.post("/support/:userId/end", async (req, res) => {
+  await SupportMessage.updateMany({ user: req.params.userId }, { closed: true });
+  await SupportMessage.create({ user: req.params.userId, from: "system", text: "Support chat ended by staff.", closed: true });
+  const u = await User.findById(req.params.userId);
+  if (u) { u.notifications.push({ text: "Your support chat was closed. Reply any time to reopen it.", type: "info" }); await u.save(); }
+  res.json({ ok: true });
+});
+// Reopen a thread (system note, closed:false).
+router.post("/support/:userId/reopen", async (req, res) => {
+  await SupportMessage.create({ user: req.params.userId, from: "system", text: "Support chat reopened by staff.", closed: false });
+  res.json({ ok: true });
+});
+// Permanently delete a thread.
+router.delete("/support/:userId", async (req, res) => {
+  await SupportMessage.deleteMany({ user: req.params.userId });
+  res.json({ ok: true });
 });
 
 // Push an in-app notification to a user.

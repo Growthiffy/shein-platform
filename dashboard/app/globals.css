@@ -2,40 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: dark; --ink:#0b0b0d; --gold:#c9a24a; --gold2:#e9d08b; --cream:#f6f1e7; }
-html, body { background:#0b0b0d; color:#f6f1e7; font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
-* { scrollbar-width: thin; scrollbar-color: rgba(201,162,74,.3) transparent; }
+:root { color-scheme: light; --line:#e6e6e6; }
+html, body { background:#ffffff; color:#1c1c1c; font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+* { scrollbar-width: thin; scrollbar-color: #cfcfcf transparent; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: rgba(201,162,74,.3); border-radius: 99px; }
+::-webkit-scrollbar-thumb { background: #d4d4d4; border-radius: 99px; }
 
-.font-display { font-family: 'Playfair Display', Georgia, serif; }
-.text-gold { color: var(--gold2); }
-.gold-grad { background: linear-gradient(135deg,#c9a24a,#e9d08b); }
+.font-display { font-family: Inter, system-ui, sans-serif; font-weight: 800; letter-spacing:-0.01em; }
+.text-gold { color: #111; }
+.gold-grad { background: linear-gradient(135deg,#ff3e6d,#ff6a8b); }
 
-.card { background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.02));
-  border:1px solid rgba(201,162,74,.15); border-radius:.9rem; }
+.card { background:#fff; border:1px solid var(--line); border-radius:.9rem; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
 
 .btn { display:inline-flex; align-items:center; justify-content:center; gap:.4rem;
-  background: linear-gradient(135deg,#c9a24a,#e9d08b); color:#0b0b0d; font-weight:600;
-  padding:.5rem 1rem; border-radius:.55rem; border:none; cursor:pointer; transition: filter .15s ease; }
-.btn:hover { filter: brightness(1.06); }
-.btn:disabled { opacity:.5; cursor:not-allowed; }
-.btn-ghost { display:inline-flex; align-items:center; gap:.35rem; border:1px solid rgba(201,162,74,.4);
-  color:#f6f1e7; padding:.45rem .9rem; border-radius:.55rem; cursor:pointer; transition: border-color .15s ease, background .15s ease; }
-.btn-ghost:hover { border-color: rgba(201,162,74,.8); background: rgba(201,162,74,.06); }
+  background:#111; color:#fff; font-weight:600; padding:.5rem 1rem; border-radius:.55rem; border:none; cursor:pointer; transition: background .15s ease; }
+.btn:hover { background:#000; }
+.btn:disabled { opacity:.4; cursor:not-allowed; }
+.btn-ghost { display:inline-flex; align-items:center; gap:.35rem; border:1px solid #d0d0d0;
+  color:#111; background:#fff; padding:.45rem .9rem; border-radius:.55rem; cursor:pointer; transition: background .15s ease, border-color .15s ease; }
+.btn-ghost:hover { background:#f2f2f2; border-color:#111; }
 
-input, select, textarea { background: rgba(0,0,0,.4); border:1px solid rgba(201,162,74,.2);
-  border-radius:.5rem; padding:.45rem .65rem; color:#f6f1e7; outline:none; transition: border-color .15s ease; }
-input:focus, select:focus, textarea:focus { border-color: rgba(201,162,74,.65); }
+input, select, textarea { background:#fff; border:1px solid #d9d9d9; border-radius:.5rem; padding:.45rem .65rem; color:#1c1c1c; outline:none; transition: border-color .15s ease; }
+input:focus, select:focus, textarea:focus { border-color:#111; }
 
-.label { font-size:.65rem; letter-spacing:.14em; text-transform:uppercase; color: rgba(246,241,231,.5); }
-.stat { border-radius:.9rem; padding:1rem 1.1rem; border:1px solid rgba(201,162,74,.15);
-  background: linear-gradient(180deg, rgba(201,162,74,.08), rgba(255,255,255,.02)); }
-.chip { display:inline-flex; align-items:center; gap:.3rem; font-size:.7rem; padding:.15rem .55rem;
-  border-radius:9999px; border:1px solid rgba(201,162,74,.3); color: var(--gold2); }
+.label { font-size:.65rem; letter-spacing:.14em; text-transform:uppercase; color:#8a8a8a; }
+.stat { border-radius:.9rem; padding:1rem 1.1rem; border:1px solid var(--line); background:#fafafa; }
+.chip { display:inline-flex; align-items:center; gap:.3rem; font-size:.7rem; padding:.15rem .55rem; border-radius:9999px; border:1px solid var(--line); background:#fafafa; color:#111; }
 
 table { width:100%; font-size:.875rem; border-collapse: collapse; }
-table th { text-align:left; color: rgba(246,241,231,.55); font-weight:500; }
+table th { text-align:left; color:#8a8a8a; font-weight:500; }
 table th, table td { padding:.55rem .75rem; }
-tbody tr { border-top:1px solid rgba(255,255,255,.05); }
-tbody tr:hover { background: rgba(255,255,255,.025); }
+tbody tr { border-top:1px solid var(--line); }
+tbody tr:hover { background:#fafafa; }

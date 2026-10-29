@@ -28,18 +28,18 @@ export default function Landing() {
       ))}
 
       <nav className="relative z-10 flex items-center justify-between px-6 md:px-8 py-6">
-        <div className="font-display text-3xl tracking-widest text-gold">SHEIN</div>
+        <div className="font-display text-3xl tracking-widest text-white">SHEIN</div>
         <div className="flex items-center gap-4">
-          <span className="hidden sm:block text-xs tracking-[0.3em] text-cream/70">LUXURY · ANALYSIS · GROWTH</span>
-          <Link href="/auth" className="btn-outline py-2 px-4 text-sm">Sign In</Link>
+          <span className="hidden sm:block text-xs tracking-[0.3em] text-white/70">LUXURY · ANALYSIS · GROWTH</span>
+          <Link href="/auth" className="inline-flex items-center rounded-lg border border-white/70 text-white px-4 py-2 text-sm font-semibold hover:bg-white hover:text-black transition">Sign In</Link>
         </div>
       </nav>
 
       <section className="relative z-10 flex flex-col items-center justify-center text-center px-6" style={{minHeight:"66vh"}}>
-        <h1 className="font-display text-5xl md:text-8xl text-cream fadein" style={{textShadow:"0 10px 40px rgba(0,0,0,.6)"}}>
-          Curated. <span className="text-gold">Analyzed.</span> Rewarded.
+        <h1 className="font-display text-5xl md:text-8xl text-white fadein" style={{textShadow:"0 10px 40px rgba(0,0,0,.6)"}}>
+          Curated. <span style={{color:"#ff6a8b"}}>Analyzed.</span> Rewarded.
         </h1>
-        <p className="mt-6 max-w-xl text-cream/80 fadein-2">
+        <p className="mt-6 max-w-xl text-white/85 fadein-2">
           A members-only platform for product analysts and investors in the world of modern fashion.
         </p>
         <Link href="/auth" className="btn-gold mt-10 fadein-3">BEGIN YOUR JOURNEY</Link>
@@ -58,7 +58,7 @@ export default function Landing() {
         ))}
       </section>
 
-      <footer className="relative z-10 text-center text-xs tracking-widest text-cream/50 py-6">
+      <footer className="relative z-10 text-center text-xs tracking-widest text-white/60 py-6">
         © Shein Members · Private Portfolio Platform
       </footer>
     </main>

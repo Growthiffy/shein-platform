@@ -38,7 +38,7 @@ function Body() {
       <div className="mt-6 card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-black/40">
+            <thead className="bg-ink2">
               <tr className="label">
                 <th className="text-left p-3">Level</th><th className="text-left p-3">Membership</th>
                 <th className="text-left p-3">Weekly Profit</th><th className="text-left p-3">Min. Amount</th>
@@ -46,7 +46,7 @@ function Body() {
             </thead>
             <tbody>
               {tiers.map(t => (
-                <tr key={t.level} className="border-t border-white/5">
+                <tr key={t.level} className="border-t border-line">
                   <td className="p-3 text-gold font-semibold">{t.level}</td>
                   <td className="p-3">{t.name}</td>
                   <td className="p-3">{t.weeklyPct}%</td>

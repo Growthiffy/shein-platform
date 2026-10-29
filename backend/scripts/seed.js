@@ -8,6 +8,7 @@ const DepositWallet = require("../models/DepositWallet");
 const Setting = require("../models/Setting");
 const Persona = require("../models/Persona");
 const { DEFAULTS } = require("../utils/settings");
+const { imageFor } = require("../config/productImages");
 
 const BRANDS = ["Vogue", "Gucci", "Zara", "Chanel", "Prada", "Dior", "Versace", "Louis Vuitton", "Burberry", "Hermes"];
 const ITEMS  = ["Tie", "Scarf", "Handbag", "Watch", "Sunglasses", "Belt", "Dress", "Jacket", "Sneakers", "Perfume"];
@@ -34,7 +35,7 @@ async function main() {
         brand, name,
         originalPrice: 200 + ((i * 37) % 1800),
         isLatest: i % 5 === 0,
-        image: `https://picsum.photos/seed/shein-${i}/600/600`,
+        image: imageFor(name, i + 1),
       });
     }
     await Product.insertMany(docs);

@@ -44,7 +44,7 @@ export default function Demo() {
 
 function L({ label, v, g }) {
   return (
-    <div className={`p-3 rounded-lg bg-black/30 border ${g ? "border-gold/40" : "border-white/5"}`}>
+    <div className={`p-3 rounded-lg bg-ink2 border ${g ? "border-gold/40" : "border-line"}`}>
       <div className="text-[10px] tracking-widest text-cream/50">{label}</div>
       <div className="text-base">{v}</div>
     </div>

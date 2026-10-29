@@ -54,7 +54,7 @@ function Body() {
         <div className="card p-6 lg:col-span-2 fadein">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="grid h-16 w-16 place-items-center rounded-full gold-grad text-black font-display text-2xl font-bold">
+              <div className="grid h-16 w-16 place-items-center rounded-full gold-grad text-white font-display text-2xl font-bold">
                 {(me.username || me.email)[0]?.toUpperCase()}
               </div>
               <div>
@@ -109,7 +109,7 @@ function Body() {
             <span className="text-4xl font-bold">{cred}%</span>
             <span className={`text-xs font-semibold ${credTone}`}>{cred >= 80 ? "EXCELLENT" : cred >= 50 ? "GOOD" : "LOW"}</span>
           </div>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/[0.06]">
             <div className="h-full rounded-full gold-grad" style={{ width: `${cred}%` }} />
           </div>
           <p className="mt-3 text-sm italic text-cream/45">Keep a high score to unlock premium benefits and faster withdrawals.</p>
@@ -124,9 +124,9 @@ function Body() {
             <thead><tr className="label"><th className="text-left pb-2">Level</th><th className="text-left pb-2">Daily Salary</th><th className="text-left pb-2">Required</th><th className="text-left pb-2">Normal %</th><th className="text-left pb-2">Latest %</th></tr></thead>
             <tbody>
               {LEVELS.map(l => (
-                <tr key={l.key} className="border-t border-white/5">
+                <tr key={l.key} className="border-t border-line">
                   <td className="py-3 font-semibold text-cream">
-                    {l.name} {me.level === l.key && <span className="ml-1 rounded-full gold-grad px-2 py-0.5 text-[10px] font-bold text-black">CURRENT</span>}
+                    {l.name} {me.level === l.key && <span className="ml-1 rounded-full gold-grad px-2 py-0.5 text-[10px] font-bold text-white">CURRENT</span>}
                   </td>
                   <td className="py-3 text-cream/70">${l.salary}/day</td>
                   <td className="py-3 text-cream/70">${l.required}</td>
