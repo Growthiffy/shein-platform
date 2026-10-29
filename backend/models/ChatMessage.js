@@ -11,6 +11,14 @@ const Schema = new mongoose.Schema({
   authorAvatar:{ type: String },
   text:        { type: String, required: true },
   canReply:    { type: Boolean, default: true }, // false = announcement-only account (one-way broadcasts)
+  // Reply-to: a snapshot of the quoted message (so it survives even if the
+  // original is deleted). mentions: @names referenced in the text.
+  replyTo:     {
+    id:         { type: mongoose.Schema.Types.ObjectId, ref: "ChatMessage" },
+    authorName: { type: String },
+    text:       { type: String },
+  },
+  mentions:    [{ type: String }],
 }, { timestamps: true });
 
 module.exports = mongoose.model("ChatMessage", Schema);

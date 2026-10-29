@@ -32,10 +32,21 @@ router.post("/:group", auth, async (req, res) => {
   const text = String(req.body?.text || "").replace(/\r\n/g, "\n").trim();
   if (!text) return res.status(400).json({ error: "empty" });
   if (text.length > 2000) return res.status(400).json({ error: "message too long" });
+
+  // Reply snapshot (must reference a message in the same group).
+  let replyTo;
+  const rid = req.body?.replyTo;
+  if (rid) {
+    const ref = await ChatMessage.findOne({ _id: rid, group }).catch(() => null);
+    if (ref) replyTo = { id: ref._id, authorName: ref.authorName, text: String(ref.text || "").slice(0, 140) };
+  }
+  // @mentions parsed from the text.
+  const mentions = [...new Set((text.match(/@([A-Za-z0-9._-]{2,30})/g) || []).map(s => s.slice(1)))];
+
   const msg = await ChatMessage.create({
     group, user: req.user._id,
     authorType: "user", authorName: req.user.username || req.user.email.split("@")[0],
-    text,
+    text, replyTo, mentions,
   });
   res.json({ msg });
 });

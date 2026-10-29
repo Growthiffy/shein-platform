@@ -1,85 +1,109 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Shell from "@/components/Shell";
 import { api } from "@/lib/api";
 import { COMMUNITY_GROUPS } from "@/lib/constants";
-import { Trash2 } from "lucide-react";
+import { Trash2, Reply, X, Send } from "lucide-react";
 
 export default function CommunityAdmin() {
   const [mentors, setMentors] = useState([]);
   const [group, setGroup] = useState("daily");
-  const [authorName, setAuthorName] = useState("");
+  const [authorName, setAuthorName] = useState("Shein Staff");
   const [text, setText] = useState("");
-  const [canReply, setCanReply] = useState(false);
-  const [msg, setMsg] = useState("");
-
-  const [modGroup, setModGroup] = useState("daily");
+  const [canReply, setCanReply] = useState(true);
+  const [replyTo, setReplyTo] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [note, setNote] = useState("");
+  const box = useRef(null);
 
   useEffect(() => { api("/api/mentor").then(d => setMentors(d.items)); }, []);
-  async function loadMessages(g) { setMessages((await api(`/api/admin/chat/${g}`)).items); }
-  useEffect(() => { loadMessages(modGroup).catch(() => {}); }, [modGroup]);
+  async function loadMessages(g, scroll = true) {
+    const items = (await api(`/api/admin/chat/${g}`)).items.reverse();
+    setMessages(items);
+    if (scroll) setTimeout(() => box.current?.scrollTo(0, box.current.scrollHeight), 50);
+  }
+  useEffect(() => { setReplyTo(null); loadMessages(group).catch(() => {}); const t = setInterval(() => loadMessages(group, false), 8000); return () => clearInterval(t); }, [group]);
+
+  // Default the author name to the mentor's name when a mentor room is selected.
+  useEffect(() => {
+    if (group.startsWith("mentor:")) {
+      const m = mentors.find(x => `mentor:${x._id}` === group);
+      if (m) setAuthorName(m.name);
+    } else setAuthorName("Shein Staff");
+  }, [group, mentors]);
 
   const groups = [
     ...COMMUNITY_GROUPS.map(g => ({ v: g, t: g })),
-    ...mentors.map(m => ({ v: `mentor:${m._id}`, t: `mentor:${m.name}` })),
+    ...mentors.map(m => ({ v: `mentor:${m._id}`, t: `mentor · ${m.name}` })),
   ];
 
   async function post() {
-    setMsg("");
-    try { await api(`/api/admin/chat/${group}`, { method: "POST", body: { text, authorName, canReply } }); setText(""); setMsg("posted ✓"); if (group === modGroup) loadMessages(modGroup); }
-    catch (e) { setMsg(e.message); }
+    setNote("");
+    const t = text.replace(/\r\n/g, "\n");
+    if (!t.trim()) return;
+    try {
+      await api(`/api/admin/chat/${group}`, { method: "POST", body: { text: t, authorName, canReply, replyTo: replyTo?._id } });
+      setText(""); setReplyTo(null); setNote("sent ✓"); loadMessages(group);
+    } catch (e) { setNote(e.message); }
   }
-  async function del(id) {
-    if (!confirm("Delete this message?")) return;
-    await api(`/api/admin/chat/message/${id}`, { method: "DELETE" });
-    loadMessages(modGroup);
-  }
+  function onKey(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); post(); } }
+  async function del(id) { if (!confirm("Delete this message?")) return; await api(`/api/admin/chat/message/${id}`, { method: "DELETE" }); loadMessages(group, false); }
 
   return (
     <Shell>
-      <h1 className="text-2xl text-gold mb-4 font-display">Community</h1>
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* announce */}
-        <div className="card p-4 space-y-3 h-max">
-          <h2 className="text-gold">Publish staff announcement</h2>
-          <label className="text-sm block">Group
-            <select className="w-full mt-1" value={group} onChange={e => setGroup(e.target.value)}>
-              {groups.map(g => <option key={g.v} value={g.v}>{g.t}</option>)}
-            </select>
-          </label>
-          <label className="text-sm block">Author name (shown with Staff badge)
-            <input className="w-full mt-1" value={authorName} onChange={e => setAuthorName(e.target.value)} placeholder="e.g. Aria C." />
-          </label>
-          <label className="text-sm block">Message
-            <textarea rows={3} className="w-full mt-1" value={text} onChange={e => setText(e.target.value)} />
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={canReply} onChange={e => setCanReply(e.target.checked)} /> allow replies
-          </label>
-          <button className="btn" onClick={post}>Post</button>
-          {msg && <div className="text-cream/60 text-sm">{msg}</div>}
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl text-gold font-display">Community</h1>
+        <select value={group} onChange={e => setGroup(e.target.value)} className="text-sm">
+          {groups.map(g => <option key={g.v} value={g.v}>{g.t}</option>)}
+        </select>
+      </div>
+
+      <div className="card flex flex-col" style={{ height: "74vh" }}>
+        <div ref={box} className="flex-1 overflow-y-auto p-4 space-y-2.5">
+          {messages.map(m => (
+            <div key={m._id} className="group flex gap-2.5">
+              <div className="h-8 w-8 shrink-0 rounded-full bg-gold2/15 grid place-items-center text-gold2 text-sm overflow-hidden">
+                {m.authorAvatar ? <img src={m.authorAvatar} alt="" className="h-full w-full object-cover" /> : (m.authorName || "?")[0]?.toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-cream/70 font-medium">{m.authorName || "member"}</span>
+                  <span className="chip">{m.authorType}</span>
+                  <span className="text-cream/30">{new Date(m.createdAt).toLocaleString()}</span>
+                  <span className="ml-auto flex items-center gap-2 opacity-0 group-hover:opacity-100">
+                    <button onClick={() => setReplyTo(m)} className="text-cream/40 hover:text-gold2" title="Reply"><Reply size={13} /></button>
+                    <button onClick={() => del(m._id)} className="text-cream/40 hover:text-gold2" title="Delete"><Trash2 size={12} /></button>
+                  </span>
+                </div>
+                {m.replyTo?.text && (
+                  <div className="mt-1 border-l-2 border-gold2/60 bg-gold2/5 rounded-r px-2 py-1">
+                    <div className="text-[11px] text-gold2 font-medium">{m.replyTo.authorName}</div>
+                    <div className="text-[11px] text-cream/50 truncate">{m.replyTo.text}</div>
+                  </div>
+                )}
+                <div className="text-sm whitespace-pre-wrap break-words">{m.text}</div>
+              </div>
+            </div>
+          ))}
+          {!messages.length && <div className="text-cream/50 text-sm">No messages in this group.</div>}
         </div>
 
-        {/* moderation */}
-        <div className="card p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-gold">Moderate messages</h2>
-            <select value={modGroup} onChange={e => setModGroup(e.target.value)} className="text-sm">
-              {groups.map(g => <option key={g.v} value={g.v}>{g.t}</option>)}
-            </select>
+        <div className="border-t border-line p-3 space-y-2">
+          {replyTo && (
+            <div className="flex items-center gap-2 rounded-lg bg-ink2 px-3 py-2">
+              <Reply size={14} className="text-gold2 shrink-0" />
+              <div className="min-w-0 flex-1"><div className="text-[11px] text-gold2 font-medium">Replying to {replyTo.authorName}</div><div className="text-[11px] text-cream/50 truncate">{replyTo.text}</div></div>
+              <button onClick={() => setReplyTo(null)} className="text-cream/40 hover:text-cream"><X size={15} /></button>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <input value={authorName} onChange={e => setAuthorName(e.target.value)} className="w-40 text-sm" placeholder="Post as…" />
+            <label className="flex items-center gap-1 text-xs text-cream/60 whitespace-nowrap"><input type="checkbox" checked={canReply} onChange={e => setCanReply(e.target.checked)} className="w-auto" /> allow replies</label>
+            {note && <span className="text-xs text-cream/50">{note}</span>}
           </div>
-          <div className="max-h-[60vh] overflow-y-auto divide-y divide-line">
-            {messages.map(m => (
-              <div key={m._id} className="py-2 flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-xs text-cream/50">{m.authorName || "member"} · {m.authorType} · {new Date(m.createdAt).toLocaleString()}</div>
-                  <div className="text-sm whitespace-pre-wrap break-words">{m.text}</div>
-                </div>
-                <button onClick={() => del(m._id)} className="btn-ghost text-xs shrink-0"><Trash2 size={13} /></button>
-              </div>
-            ))}
-            {!messages.length && <div className="text-cream/50 text-sm py-4">No messages in this group.</div>}
+          <div className="flex items-end gap-2">
+            <textarea value={text} onChange={e => setText(e.target.value)} onKeyDown={onKey} rows={1} className="flex-1 resize-none max-h-32" placeholder="Join the chat / reply as staff…  (Enter to send)" />
+            <button className="btn" onClick={post}><Send size={15} /></button>
           </div>
         </div>
       </div>

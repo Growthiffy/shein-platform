@@ -1,0 +1,79 @@
+[
+  { "speakers": 2, "lines": [
+    { "role": 0, "text": "morning everyone, how's the day looking?" },
+    { "role": 1, "text": "slow start for me honestly, still on my first coffee", "reply": true },
+    { "role": 0, "text": "haha same, easing into it", "reply": true },
+    { "role": 1, "text": "let's get a few done before lunch though" }
+  ]},
+  { "speakers": 3, "lines": [
+    { "role": 0, "text": "the handbag picks today are actually nice" },
+    { "role": 1, "text": "right? the leather ones especially", "mention": true },
+    { "role": 2, "text": "i'm more of a watch person tbh" },
+    { "role": 0, "text": "fair, those are solid too", "mention": true, "reply": true }
+  ]},
+  { "speakers": 2, "lines": [
+    { "role": 0, "text": "anyone else finding the latest collection items take longer to read through?" },
+    { "role": 1, "text": "yeah they have more detail, i slow down on those", "reply": true },
+    { "role": 0, "text": "makes sense, don't want to rush them" }
+  ]},
+  { "speakers": 3, "lines": [
+    { "role": 0, "text": "welcome to the new folks who joined this week 👋" },
+    { "role": 1, "text": "yes welcome! ask anything, people here are helpful" },
+    { "role": 2, "text": "took me a couple days to get into a rhythm, you'll be fine" }
+  ]},
+  { "speakers": 2, "lines": [
+    { "role": 0, "text": "quick q, do you write a short comment or a long one?" },
+    { "role": 1, "text": "short and clear works better for me", "reply": true },
+    { "role": 0, "text": "good point, i overthink mine", "reply": true }
+  ]},
+  { "speakers": 2, "lines": [
+    { "role": 0, "text": "gotta step away for a bit, got some errands" },
+    { "role": 1, "text": "no worries, catch you later", "mention": true, "reply": true }
+  ]},
+  { "speakers": 3, "lines": [
+    { "role": 0, "text": "the sneakers lineup caught my eye today" },
+    { "role": 1, "text": "same, almost wish i could keep a pair lol" },
+    { "role": 2, "text": "ha, the dresses are my weakness", "reply": true }
+  ]},
+  { "speakers": 2, "lines": [
+    { "role": 0, "text": "how's everyone pacing today, busy or chill?" },
+    { "role": 1, "text": "chill, taking it slow after a long week", "reply": true }
+  ]},
+  { "speakers": 3, "lines": [
+    { "role": 0, "text": "anyone got tips for staying focused through the whole set?" },
+    { "role": 1, "text": "short breaks between, works for me", "reply": true, "mention": true },
+    { "role": 2, "text": "same, and a bit of music in the background" },
+    { "role": 0, "text": "appreciate it, will try that", "reply": true }
+  ]},
+  { "speakers": 2, "lines": [
+    { "role": 0, "text": "back online, took a proper break" },
+    { "role": 1, "text": "welcome back! it got quiet here for a bit", "mention": true, "reply": true }
+  ]},
+  { "speakers": 2, "lines": [
+    { "role": 0, "text": "the scarves today are really elegant" },
+    { "role": 1, "text": "agreed, the silk ones photograph so well", "reply": true }
+  ]},
+  { "speakers": 3, "lines": [
+    { "role": 0, "text": "good evening all, wrapping up soon" },
+    { "role": 1, "text": "same here, long but good day" },
+    { "role": 2, "text": "rest well everyone, back tomorrow" }
+  ]},
+  { "speakers": 2, "lines": [
+    { "role": 0, "text": "do you prefer mornings or evenings for this?" },
+    { "role": 1, "text": "mornings, head's clearer", "reply": true },
+    { "role": 0, "text": "yeah i'm the opposite, night owl here" }
+  ]},
+  { "speakers": 2, "lines": [
+    { "role": 0, "text": "someone remind me to take a break if i go quiet 😅" },
+    { "role": 1, "text": "deal, don't burn out", "mention": true, "reply": true }
+  ]},
+  { "speakers": 3, "lines": [
+    { "role": 0, "text": "the perfume items are oddly satisfying to review" },
+    { "role": 1, "text": "ha the bottles are little works of art" },
+    { "role": 2, "text": "agreed, nicer than the belts imo", "reply": true }
+  ]},
+  { "speakers": 2, "lines": [
+    { "role": 0, "text": "quiet in here today, everyone heads down?" },
+    { "role": 1, "text": "yep, focused mode. will chat more later", "reply": true }
+  ]}
+]
