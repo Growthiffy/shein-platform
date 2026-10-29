@@ -29,14 +29,25 @@ router.get("/:group", auth, async (req, res) => {
 router.post("/:group", auth, async (req, res) => {
   const group = req.params.group;
   if (!allowed(req.user, group)) return res.status(403).json({ error: "no access to this group" });
-  const { text } = req.body || {};
-  if (!text?.trim()) return res.status(400).json({ error: "empty" });
+  const text = String(req.body?.text || "").replace(/\r\n/g, "\n").trim();
+  if (!text) return res.status(400).json({ error: "empty" });
+  if (text.length > 2000) return res.status(400).json({ error: "message too long" });
   const msg = await ChatMessage.create({
     group, user: req.user._id,
     authorType: "user", authorName: req.user.username || req.user.email.split("@")[0],
-    text: text.trim(),
+    text,
   });
   res.json({ msg });
+});
+
+// Delete a message: a member may delete their own; admins may delete any.
+router.delete("/message/:id", auth, async (req, res) => {
+  const m = await ChatMessage.findById(req.params.id);
+  if (!m) return res.status(404).json({ error: "not found" });
+  const owner = m.authorType === "user" && m.user && String(m.user) === String(req.user._id);
+  if (!owner && !req.user.isAdmin) return res.status(403).json({ error: "not allowed" });
+  await m.deleteOne();
+  res.json({ ok: true });
 });
 
 module.exports = router;
