@@ -5,6 +5,7 @@
 const ChatMessage = require("../models/ChatMessage");
 const Mentor = require("../models/Mentor");
 const { generate, aiEnabled } = require("./ai");
+const { humanPresent } = require("./presence");
 
 const TEMPLATES = [
   "Thanks for your message! I'll review this shortly.",
@@ -20,6 +21,10 @@ function hashStr(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (Math.im
 async function maybeMentorReply(group) {
   if (!group.startsWith("mentor:")) return;
 
+  // If the real mentor/admin who owns this room is live, stay silent — the human
+  // will answer. (Room key is mentor:<mentorId> or mentor:<mentorId>:<userId>.)
+  if (await humanPresent(group).catch(() => false)) return;
+
   const last = await ChatMessage.findOne({ group }).sort({ createdAt: -1 });
   if (!last || last.authorType !== "user") return; // nothing to answer / already answered
 
@@ -31,7 +36,7 @@ async function maybeMentorReply(group) {
   const delayMs = (120 + (hashStr(String(last._id)) % 361)) * 1000; // 120-480s
   if (Date.now() - new Date(last.createdAt).getTime() < delayMs) return;
 
-  const mentorId = group.slice(7);
+  const mentorId = group.split(":")[1];
   const mentor = await Mentor.findById(mentorId).catch(() => null);
   if (!mentor) return;
 
@@ -40,9 +45,15 @@ async function maybeMentorReply(group) {
 
   let text = null;
   if (aiEnabled()) {
+    const system =
+      "You are a professional, reassuring investment mentor on the Shein product-analyst platform. " +
+      "The company is legitimate and reliable — never suggest otherwise. If the member reports a " +
+      "technical or payment issue, calmly reassure them (routine processing delays, verification " +
+      "queues, scheduled maintenance that resolves itself) and advise contacting Support for specifics. " +
+      "Never confirm a real fault, promise amounts, or give financial guarantees. Warm and concise.";
     text = await generate(
-      `You are ${mentor.name}, a friendly investment mentor on a product-analyst platform. A member wrote: "${String(last.text).slice(0, 200)}". Reply in 1-2 short, warm, professional sentences. No greeting line, no sign-off.`,
-      { maxTokens: 70, temperature: 0.7 }
+      `A member wrote: "${String(last.text).slice(0, 200)}". Reply as ${mentor.name} in 1-2 short, warm, professional sentences. No greeting line, no sign-off.`,
+      { maxTokens: 80, temperature: 0.7, system }
     );
   }
   if (!text) text = TEMPLATES[hashStr(String(last._id)) % TEMPLATES.length];

@@ -11,8 +11,12 @@ function Body() {
   const [list, setList] = useState([]);
   const [picked, setPicked] = useState(null);
   const [msgs, setMsgs] = useState([]);
+  const [typing, setTyping] = useState([]);
   const [text, setText] = useState("");
   const box = useRef(null);
+
+  // 1:1 room key: mentor:<mentorId>:<myUserId>.
+  const roomOf = (mentorId) => `mentor:${mentorId}:${me.id}`;
 
   async function load() {
     const d = await api("/api/mentor"); setList(d.items);
@@ -23,8 +27,8 @@ function Body() {
     }
   }
   async function loadChat(mentorId) {
-    const d = await api(`/api/community/mentor:${mentorId}`);
-    setMsgs(d.items);
+    const d = await api(`/api/community/${roomOf(mentorId)}`);
+    setMsgs(d.items); setTyping(d.typing || []);
     setTimeout(() => box.current?.scrollTo(0, box.current.scrollHeight), 50);
   }
   useEffect(() => { load(); }, []);
@@ -42,7 +46,7 @@ function Body() {
   async function send() {
     const t = text.replace(/\r\n/g, "\n");
     if (!t.trim() || !picked) return;
-    await api(`/api/community/mentor:${picked._id}`, { method: "POST", body: { text: t } });
+    await api(`/api/community/${roomOf(picked._id)}`, { method: "POST", body: { text: t } });
     setText(""); loadChat(picked._id);
   }
   function onKey(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }
@@ -107,6 +111,16 @@ function Body() {
                 );
               })}
               {!msgs.length && <div className="text-cream/50 text-sm">Say hello to your mentor.</div>}
+              {typing.length > 0 && (
+                <div className="flex items-center gap-2 text-xs text-cream/50 pt-1">
+                  <span className="flex gap-0.5">
+                    <i className="h-1.5 w-1.5 rounded-full bg-cream/40" style={{ animation: "dots 1.2s infinite" }} />
+                    <i className="h-1.5 w-1.5 rounded-full bg-cream/40" style={{ animation: "dots 1.2s infinite .2s" }} />
+                    <i className="h-1.5 w-1.5 rounded-full bg-cream/40" style={{ animation: "dots 1.2s infinite .4s" }} />
+                  </span>
+                  {typing.join(", ")} {typing.length > 1 ? "are" : "is"} typing…
+                </div>
+              )}
             </div>
             {/* composer */}
             <div className="flex items-end gap-2 mt-3">

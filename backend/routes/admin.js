@@ -171,7 +171,14 @@ router.post("/broadcast", async (req, res) => {
 // Admin operators (backend users). Separate from members.
 router.get("/admins", async (req, res) => {
   const items = await User.find({ role: "admin" }).select("email username createdAt permissions").sort({ createdAt: 1 });
-  res.json({ items: items.map(o => ({ _id: o._id, email: o.email, username: o.username, createdAt: o.createdAt, permissions: o.permissions || [], fullAccess: isFullAccess(o) })) });
+  // Which operators are also mentors (own an active Mentor profile).
+  const mentors = await Mentor.find({ owner: { $ne: null } }).select("owner name title active");
+  const byOwner = new Map(mentors.map(m => [String(m.owner), m]));
+  res.json({ items: items.map(o => {
+    const m = byOwner.get(String(o._id));
+    return { _id: o._id, email: o.email, username: o.username, createdAt: o.createdAt, permissions: o.permissions || [], fullAccess: isFullAccess(o),
+      mentor: m ? { _id: m._id, name: m.name, title: m.title, active: m.active } : null };
+  }) });
 });
 router.post("/admins", async (req, res) => {
   const email = (req.body?.email || "").trim().toLowerCase() || undefined;
@@ -207,8 +214,36 @@ router.delete("/admins/:id", async (req, res) => {
   if (count <= 1) return res.status(400).json({ error: "cannot remove the last admin" });
   const op = await User.findById(req.params.id);
   if (!op || op.role !== "admin") return res.status(404).json({ error: "no admin" });
+  // Detach any mentor profile this operator owned (keep the profile for history,
+  // just disable its live human control).
+  await Mentor.updateMany({ owner: op._id }, { $set: { owner: null, active: false } });
   await op.deleteOne();
   res.json({ ok: true });
+});
+
+// Promote/demote an operator to/from mentor. Enabling links (or creates) a
+// Mentor profile owned by this admin so they reply to mentees as a real human;
+// disabling deactivates it but preserves member assignments.
+router.patch("/admins/:id/mentor", async (req, res) => {
+  const op = await User.findById(req.params.id);
+  if (!op || op.role !== "admin") return res.status(404).json({ error: "no admin" });
+  const { enabled, name, title, bio, avatar } = req.body || {};
+  let mentor = await Mentor.findOne({ owner: op._id });
+  if (enabled) {
+    const fields = { active: true, owner: op._id };
+    if (name !== undefined) fields.name = name;
+    if (title !== undefined) fields.title = title;
+    if (bio !== undefined) fields.bio = bio;
+    if (avatar !== undefined) fields.avatar = avatar;
+    if (mentor) { Object.assign(mentor, fields); await mentor.save(); }
+    else {
+      mentor = await Mentor.create({ name: name || op.username || "Mentor", title, bio, avatar, active: true, owner: op._id });
+    }
+  } else if (mentor) {
+    mentor.active = false;
+    await mentor.save();
+  }
+  res.json({ mentor: mentor ? { _id: mentor._id, name: mentor.name, title: mentor.title, active: mentor.active } : null });
 });
 
 // Push an in-app notification to a user.

@@ -15,6 +15,7 @@ export default function CommunityAdmin() {
   const [messages, setMessages] = useState([]);
   const [note, setNote] = useState("");
   const box = useRef(null);
+  const typingSentAt = useRef(0);
 
   useEffect(() => { api("/api/mentor").then(d => setMentors(d.items)); }, []);
   async function loadMessages(g, scroll = true) {
@@ -23,6 +24,20 @@ export default function CommunityAdmin() {
     if (scroll) setTimeout(() => box.current?.scrollTo(0, box.current.scrollHeight), 50);
   }
   useEffect(() => { setReplyTo(null); loadMessages(group).catch(() => {}); const t = setInterval(() => loadMessages(group, false), 8000); return () => clearInterval(t); }, [group]);
+
+  // Presence heartbeat while viewing a group → mutes the AI personas / mentor
+  // auto-reply in that room so a real operator is never talked over.
+  useEffect(() => {
+    const beat = (typing) => api("/api/mentor-admin/presence", { method: "POST", body: { group, typing } }).catch(() => {});
+    beat(false);
+    const t = setInterval(() => beat(false), 20000);
+    return () => { clearInterval(t); api("/api/mentor-admin/presence/clear", { method: "POST", body: { group } }).catch(() => {}); };
+  }, [group]);
+  function onType(v) {
+    setText(v);
+    const now = Date.now();
+    if (now - typingSentAt.current > 3000) { typingSentAt.current = now; api("/api/mentor-admin/presence", { method: "POST", body: { group, typing: true } }).catch(() => {}); }
+  }
 
   // Default the author name to the mentor's name when a mentor room is selected.
   useEffect(() => {
@@ -102,7 +117,7 @@ export default function CommunityAdmin() {
             {note && <span className="text-xs text-cream/50">{note}</span>}
           </div>
           <div className="flex items-end gap-2">
-            <textarea value={text} onChange={e => setText(e.target.value)} onKeyDown={onKey} rows={1} className="flex-1 resize-none max-h-32" placeholder="Join the chat / reply as staff…  (Enter to send)" />
+            <textarea value={text} onChange={e => onType(e.target.value)} onKeyDown={onKey} rows={1} className="flex-1 resize-none max-h-32" placeholder="Join the chat / reply as staff…  (Enter to send)" />
             <button className="btn" onClick={post}><Send size={15} /></button>
           </div>
         </div>

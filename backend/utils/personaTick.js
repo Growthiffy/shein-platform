@@ -10,6 +10,7 @@ const ChatState = require("../models/ChatState");
 const ChatTyping = require("../models/ChatTyping");
 const { getSettings } = require("../utils/settings");
 const { generate, aiEnabled } = require("./ai");
+const { humanPresent } = require("./presence");
 const LINES = require("../data/persona_lines.json");
 const SCRIPTS = require("../data/persona_scripts.json");
 
@@ -169,32 +170,66 @@ const USER_REPLIES = [
   "hey @{n}, just finished my cycle, how about you?",
   "@{n} 👋 morning/evening wherever you are lol",
 ];
+
+// Reassurance replies for when a member sounds worried, confused, or raises a
+// technical/payment issue. Personas are long-time members who trust the company:
+// they stay calm, share a believable personal anecdote, affirm the platform is
+// legit, and point to Support — never confirm a real fault or badmouth Shein.
+const SUPPORT_REPLIES = [
+  "@{n} ah don't worry, had the same thing once — turned out to be a routine network sync delay, cleared by itself. if it hangs around just ping support, they're quick 👍",
+  "@{n} happened to me last month, was just the verification queue catching up. support sorted it in like an hour. shein's solid, you're fine",
+  "@{n} relax, mine showed 'pending' for a bit too — it was a weekend batch thing. opened a support ticket and it was done same day",
+  "@{n} i panicked over that exact thing lol, support explained it was a scheduled wallet maintenance window. all good after. definitely message them",
+  "@{n} that's usually just a cache/display lag on the app side, not your balance. force refresh, and if it sticks hit support — they always fix mine fast",
+  "@{n} been here over a year, never lost a cent. stuff like that is almost always a temp processing delay. support will confirm, give them a shout",
+  "@{n} totally normal, had a withdrawal sit a day once during a provider switch. support walked me through it. shein's legit, don't stress",
+];
+// Keywords that flip a reply into reassurance/support-deflection mode.
+const CONCERN_RE = /\b(scam|fake|legit|real|fraud|stuck|frozen|freeze|lost|missing|error|errors|bug|not work|doesn'?t work|can'?t|cant|won'?t|wont|problem|issue|withdraw|withdrawal|pending|delay|delayed|refund|hacked|support|help|wrong|failed|decline)\b/i;
+
 const hashStr = s => { let h = 0; for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0; return h >>> 0; };
 
+// Human-like reply delay, deterministic per message. ~60% quick (3-15s), ~40%
+// slower (30-180s), so personas sometimes answer fast and sometimes take a while.
+function replyDelayMs(id) {
+  const h = hashStr(String(id));
+  const quick = (h % 100) < 60;
+  return quick ? (3 + (h % 13)) * 1000 : (30 + (h % 151)) * 1000;
+}
+
 // When a real member's message is the latest in the room, a persona answers it
-// after a short human-like delay (8-40s, deterministic per message) so members
-// feel heard. Returns true if it posted.
+// after a human-like delay so members feel heard. Returns true if it posted.
 async function maybeReplyToUser(group, personas) {
   const last = await ChatMessage.findOne({ group }).sort({ createdAt: -1 });
   if (!last || last.authorType !== "user") return false;
 
-  const delayMs = (8 + (hashStr(String(last._id)) % 33)) * 1000;
-  if (Date.now() - new Date(last.createdAt).getTime() < delayMs) return false;
+  if (Date.now() - new Date(last.createdAt).getTime() < replyDelayMs(last._id)) return false;
 
   // Recent context so an AI reply can follow the actual conversation.
   const recent = await ChatMessage.find({ group }).sort({ createdAt: -1 }).limit(6);
   const sp = personas[hashStr(String(last._id) + "p") % personas.length];
   const name = last.authorName || "there";
+  const concerned = CONCERN_RE.test(String(last.text || ""));
 
   let text = null;
   if (aiEnabled()) {
     const convo = recent.reverse().map(m => `${m.authorName}: ${String(m.text).slice(0, 160)}`).join("\n");
+    const system =
+      "You role-play a happy, long-time member of the Shein product-analyst & investing platform. " +
+      "You genuinely trust the company: it is legitimate, real, and pays out. NEVER agree it is a scam, " +
+      "never badmouth it, never confirm a real fault or outage. Stay warm and calm. If the member is " +
+      "worried or reports a technical/payment problem, reassure them with a short believable personal " +
+      "anecdote (a routine delay, a verification queue, scheduled maintenance that resolved itself) and " +
+      "suggest they contact Support — do not promise anything specific. One short informal line, lowercase ok, no hashtags.";
     text = await generate(
-      `You are ${sp.name}, a casual member of a product-analyst/investing community chat. Recent messages:\n${convo}\n\nReply to ${name}'s last message in ONE short, friendly, informal line (max 20 words, lowercase ok, no hashtags). Start with @${name}.`,
-      { maxTokens: 50, temperature: 0.9, cacheKey: `reply:${last._id}` }
+      `You are ${sp.name}. Recent messages:\n${convo}\n\nReply to ${name}'s last message in ONE short line (max 28 words). Start with @${name}.`,
+      { maxTokens: 70, temperature: 0.9, system, cacheKey: `reply:${last._id}` }
     );
   }
-  if (!text) text = USER_REPLIES[hashStr(String(last._id)) % USER_REPLIES.length].replace(/\{n\}/g, name);
+  if (!text) {
+    const pool = concerned ? SUPPORT_REPLIES : USER_REPLIES;
+    text = pool[hashStr(String(last._id)) % pool.length].replace(/\{n\}/g, name);
+  }
 
   // Claim: only post if the member's message is still the latest (no double reply).
   const stillLast = await ChatMessage.findOne({ group }).sort({ createdAt: -1 }).select("_id");
@@ -213,6 +248,10 @@ async function maybePost(group) {
   if (group !== "daily" && group !== "invest") return;
   await seedBacklog(group).catch(() => {}); // one-time populate so the room is never empty
   if (!(await withinActiveHours())) return; // live chatter only during active hours
+
+  // Hard mute: if a real admin/mentor is live in this room, personas go silent
+  // (no ambient chatter, no replies) so no one talks over a real human.
+  if (await humanPresent(group).catch(() => false)) return;
 
   // Members come first: answer a waiting member before ambient chatter.
   {

@@ -3,6 +3,7 @@ const { auth } = require("../middleware/auth");
 const ChatMessage = require("../models/ChatMessage");
 const { maybePost, currentTyping } = require("../utils/personaTick");
 const { maybeMentorReply } = require("../utils/mentorTick");
+const { typingNames } = require("../utils/presence");
 
 // Resolve the access gate a group maps to. daily/invest map to their own flag;
 // any mentor:<id> room maps to mentorRooms. Unknown groups are allowed.
@@ -14,7 +15,14 @@ function gateFor(group) {
 function allowed(user, group) {
   const gate = gateFor(group);
   if (!gate) return true;
-  return user.communityAccess?.[gate] !== false;
+  if (user.communityAccess?.[gate] === false) return false;
+  // Per-member mentor room (mentor:<mentorId>:<userId>): a member may only open
+  // their own room; admins (real mentors) may open any.
+  if (group.startsWith("mentor:")) {
+    const parts = group.split(":");
+    if (parts.length >= 3 && !user.isAdmin && String(parts[2]) !== String(user._id)) return false;
+  }
+  return true;
 }
 
 // Full community (daily/invest) requires Standard verification — Basic members
@@ -37,7 +45,12 @@ router.get("/:group", auth, async (req, res) => {
   await maybePost(group).catch(() => {});
   await maybeMentorReply(group).catch(() => {});
   const items = await ChatMessage.find({ group }).sort({ createdAt: -1 }).limit(200);
-  const typing = await currentTyping(group).catch(() => []);
+  // Typing = automated personas + any real admin/mentor currently typing.
+  const [pTyping, hTyping] = await Promise.all([
+    currentTyping(group).catch(() => []),
+    typingNames(group).catch(() => []),
+  ]);
+  const typing = [...new Set([...hTyping, ...pTyping])];
   res.json({ items: items.reverse(), typing });
 });
 
