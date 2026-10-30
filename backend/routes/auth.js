@@ -172,6 +172,7 @@ function publicUser(u) {
     emailVerified: u.emailVerified, mentor: u.mentor,
     isAdmin: u.isAdmin, role: u.role || (u.isAdmin ? "admin" : "customer"),
     suspended: !!u.suspended,
+    frozen: { active: !!u.frozen?.active, amount: u.frozen?.amount || 0, reason: u.frozen?.reason || "" },
     permissions: u.permissions || [],
     fullAccess: !u.permissions || u.permissions.length === 0 || u.permissions.includes("*"),
     investment: u.investment, payoutWallets: u.payoutWallets,

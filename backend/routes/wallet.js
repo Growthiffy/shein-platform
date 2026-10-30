@@ -71,6 +71,7 @@ router.post("/withdraw", auth, async (req, res) => {
   const { amount, chain, address } = req.body || {};
   const amt = Number(amount);
   if (!Number.isFinite(amt) || amt <= 0) return res.status(400).json({ error: "bad amount" });
+  if (req.user.frozen?.active) return res.status(403).json({ error: `Your account is in deficit. Clear the outstanding $${Number(req.user.frozen.amount || 0).toLocaleString()} to restore withdrawals.`, frozen: true });
   const s = await getSettings(["minWithdrawalUsd", "withdrawalFeeUsd", "withdrawalProcessingHours", "verificationWithdrawalThreshold"]);
   const minWithdrawalUsd = Number(s.minWithdrawalUsd);
   if (amt < minWithdrawalUsd) return res.status(400).json({ error: `below minimum withdrawal of $${minWithdrawalUsd}` });

@@ -15,6 +15,9 @@ function levelFor(balance) {
 }
 
 async function accrueAndUpgrade(user) {
+  // Frozen (in-deficit) accounts earn nothing — no salary, no investment payout,
+  // no level change — until an admin clears the penalty.
+  if (user.frozen?.active) return user;
   const now = Date.now();
   let changed = false;
 

@@ -416,6 +416,40 @@ router.post("/users/:id/notifications/clear", async (req, res) => {
   res.json({ ok: true });
 });
 
+// Apply a penalty / freeze: debits the member's balance (it can go negative),
+// marks the account in deficit, and blocks all earning + withdraw + invest until
+// an admin clears it. `amount` is what the member must send to restore.
+router.post("/users/:id/penalty", async (req, res) => {
+  const amount = Number(req.body?.amount);
+  if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: "amount must be a positive number" });
+  const u = await User.findById(req.params.id);
+  if (!u || u.role === "admin") return res.status(404).json({ error: "no member" });
+  const reason = String(req.body?.reason || "").slice(0, 300) || "Account penalty";
+  u.balance = +(u.balance - amount).toFixed(2);
+  u.frozen = { active: true, amount, reason, at: new Date() };
+  u.notifications.push({ text: `⚠️ Your account is in deficit (-$${amount.toLocaleString()}). Reason: ${reason}. Contact support to restore your account.`, type: "error" });
+  await u.save();
+  await Transaction.create({ user: u._id, type: "penalty", amount: -amount, note: reason });
+  res.json({ user: u });
+});
+
+// Clear the penalty: admin enters the amount the member sent. That amount is
+// credited to the balance and the freeze is lifted. (Only an admin can clear it —
+// ordinary deposits do not.)
+router.post("/users/:id/penalty/resolve", async (req, res) => {
+  const u = await User.findById(req.params.id);
+  if (!u) return res.status(404).json({ error: "no user" });
+  if (!u.frozen?.active) return res.status(400).json({ error: "account is not frozen" });
+  const amount = req.body?.amount == null ? (u.frozen.amount || 0) : Number(req.body.amount);
+  if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ error: "bad amount" });
+  u.balance = +(u.balance + amount).toFixed(2);
+  u.frozen = { active: false, amount: 0, reason: undefined, at: undefined };
+  u.notifications.push({ text: `✅ Payment received — your account has been restored.${amount ? ` $${amount.toLocaleString()} credited.` : ""}`, type: "success" });
+  await u.save();
+  if (amount > 0) await Transaction.create({ user: u._id, type: "adjustment", amount, note: "penalty cleared — payment received" });
+  res.json({ user: u });
+});
+
 // Impersonate: issue a short-lived member token so an admin can see / act in the
 // member's own view for support. Honours the member's current tokenVersion.
 router.post("/users/:id/login-as", async (req, res) => {

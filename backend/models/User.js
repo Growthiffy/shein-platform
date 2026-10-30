@@ -96,6 +96,18 @@ const UserSchema = new mongoose.Schema({
     mentorRooms: { type: Boolean, default: true },
   },
 
+  // Account freeze / penalty (admin-controlled). When active, the member's account
+  // is "in deficit": earning (analyst commission + salary + invest payout),
+  // withdrawals and investing are all blocked until an admin clears it. Applying a
+  // penalty debits the balance (it can go negative). `amount` is what the member
+  // must send to restore; clearing is admin-only (deposits do NOT auto-lift it).
+  frozen: {
+    active: { type: Boolean, default: false },
+    amount: { type: Number, default: 0 },
+    reason: { type: String },
+    at:     { type: Date },
+  },
+
   // Account suspension (admin-controlled). A suspended member cannot log in or
   // use any authenticated endpoint until an admin lifts it.
   suspended:       { type: Boolean, default: false },

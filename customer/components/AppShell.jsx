@@ -133,6 +133,24 @@ export default function AppShell({ children }) {
           </div>
         </header>
 
+        {me.frozen?.active && (
+          <div className="mx-auto max-w-6xl px-4 pt-3">
+            <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4">
+              <div className="flex items-start gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-red-500/20 text-red-500 text-lg">⚠</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-red-500">Account in deficit — ${Number(me.frozen.amount || 0).toLocaleString()} outstanding</div>
+                  <div className="text-sm text-cream/70 mt-0.5">{me.frozen.reason || "Your account is frozen."} Earning, withdrawals and investing are paused until this is cleared. Send the outstanding amount, then contact support to restore your account.</div>
+                  <div className="mt-2 flex gap-2">
+                    <Link href="/wallet/deposit" className="btn-gold text-sm">Deposit now</Link>
+                    <Link href="/support" className="btn-outline text-sm">Contact support</Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {children}
 
         <Footer />

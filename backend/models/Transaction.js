@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const Schema = new mongoose.Schema({
   user:    { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
-  type:    { type: String, enum: ["deposit", "withdrawal", "commission", "salary", "invest_payout", "invest_lock", "invest_release", "reward", "adjustment"], required: true },
+  type:    { type: String, enum: ["deposit", "withdrawal", "commission", "salary", "invest_payout", "invest_lock", "invest_release", "reward", "adjustment", "penalty"], required: true },
   amount:  { type: Number, required: true },
   status:  { type: String, enum: ["pending", "approved", "rejected", "complete"], default: "complete" },
   chain:   { type: String },

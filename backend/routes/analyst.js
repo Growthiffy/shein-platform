@@ -63,6 +63,7 @@ router.post("/submit", auth, async (req, res) => {
   const u = req.user;
 
   // Structured ratings + recommendation are all required.
+  if (u.frozen?.active) return res.status(403).json({ error: `Your account is in deficit. Clear the outstanding $${Number(u.frozen.amount || 0).toLocaleString()} to resume earning.`, frozen: true });
   const dR = rating(demandRating), qR = rating(qualityRating), pR = rating(priceRating);
   if (dR === null || qR === null || pR === null || !VALID_RECS.includes(recommendation)) {
     return res.status(400).json({ error: "All ratings (1-5) and a recommended action are required." });

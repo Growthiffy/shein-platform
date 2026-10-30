@@ -17,6 +17,7 @@ router.post("/start", auth, async (req, res) => {
   const lockWeeks = Number(await getSetting("investLockWeeks"));
   const tier = INVEST_TIERS.find(t => t.level === Number(tierLevel));
   if (!tier) return res.status(400).json({ error: "bad tier" });
+  if (req.user.frozen?.active) return res.status(403).json({ error: "Your account is in deficit. Clear it to invest.", frozen: true });
   if (!Number.isFinite(amt) || amt < tier.min) return res.status(400).json({ error: `min ${tier.min}` });
   if (req.user.investment?.amount > 0) return res.status(400).json({ error: "You already have an active investment. Release it before starting a new one." });
 

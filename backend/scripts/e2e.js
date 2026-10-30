@@ -256,6 +256,22 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     r = await req("POST", `/api/admin/users/${victim._id}/2fa-disable`, { token: ownerTok });
     ok("admin disables member 2FA", r.status === 200);
 
+    // ----- freeze / deficit (penalty) -----
+    await req("PATCH", `/api/admin/users/${victim._id}`, { token: ownerTok, body: { balance: 100 } });
+    r = await req("POST", `/api/admin/users/${victim._id}/penalty`, { token: ownerTok, body: { amount: 500, reason: "balance review" } });
+    ok("admin applies penalty (freeze + debit to negative)", r.status === 200 && r.json.user?.frozen?.active === true && r.json.user?.balance === -400);
+    const frozenTok = (await req("POST", `/api/admin/users/${victim._id}/login-as`, { token: ownerTok })).json.token;
+    r = await req("GET", "/api/me", { token: frozenTok });
+    ok("frozen member sees deficit in profile", r.status === 200 && r.json.user?.frozen?.active === true && r.json.user?.frozen?.amount === 500);
+    r = await req("POST", "/api/wallet/withdraw", { token: frozenTok, body: { amount: 100, chain: "TRC20", address: "x" } });
+    ok("frozen member cannot withdraw -> 403", r.status === 403 && r.json.frozen === true);
+    r = await req("POST", "/api/invest/start", { token: frozenTok, body: { tierLevel: 1, amount: 1000 } });
+    ok("frozen member cannot invest -> 403", r.status === 403 && r.json.frozen === true);
+    r = await req("POST", "/api/analyst/submit", { token: frozenTok, body: { comment: "This is a detailed analysis of demand and pricing for the item.", demandRating: 3, qualityRating: 3, priceRating: 3, recommendation: "maintain" } });
+    ok("frozen member cannot earn (analyst) -> 403", r.status === 403 && r.json.frozen === true);
+    r = await req("POST", `/api/admin/users/${victim._id}/penalty/resolve`, { token: ownerTok, body: { amount: 500 } });
+    ok("admin clears deficit + credits balance", r.status === 200 && r.json.user?.frozen?.active === false);
+
     // deleting your own admin account is blocked
     r = await req("DELETE", `/api/admin/users/${owner._id}`, { token: ownerTok });
     ok("admin cannot delete self -> 400", r.status === 400);

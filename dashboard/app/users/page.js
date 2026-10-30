@@ -73,6 +73,17 @@ export default function Users() {
     act("/investment", { tier, amount }, null, "investment set");
   };
   const walletAction = (idx, action) => act(`/payout-wallet/${idx}`, { action }, action === "remove" ? "Remove this payout wallet?" : null, action === "remove" ? "wallet removed" : "hold cleared");
+  const applyPenalty = () => {
+    const amount = Number(prompt("Penalty / deficit amount $ (debits balance, freezes account):", "0"));
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    const reason = prompt("Reason (shown to the member):", "Account penalty") || "Account penalty";
+    act("/penalty", { amount, reason }, `Apply a $${amount} penalty and freeze this member's account?`, "penalty applied");
+  };
+  const resolvePenalty = () => {
+    const amount = Number(prompt("Amount received from member $ (credits balance, lifts freeze):", String(sel.frozen?.amount || 0)));
+    if (!Number.isFinite(amount) || amount < 0) return;
+    act("/penalty/resolve", { amount }, `Clear the deficit and credit $${amount}?`, "deficit cleared");
+  };
   async function loginAs() {
     const r = await act("/login-as", {}, "Open this member's account view in the member app?");
     if (r?.token) window.open(`${CUSTOMER_BASE}/auth?as=${encodeURIComponent(r.token)}`, "_blank", "noopener");
@@ -131,7 +142,10 @@ export default function Users() {
                     {detail && <span>{detail.submissions} analyses · {detail.referrals} refs</span>}
                   </div>
                 </div>
-                {u.suspended && <span className="shrink-0 rounded-full bg-red-500/15 text-red-500 text-[10px] px-2 py-0.5">SUSPENDED</span>}
+                <div className="flex flex-col items-end gap-1">
+                  {u.suspended && <span className="rounded-full bg-red-500/15 text-red-500 text-[10px] px-2 py-0.5">SUSPENDED</span>}
+                  {u.frozen?.active && <span className="rounded-full bg-amber-500/15 text-amber-600 text-[10px] px-2 py-0.5">DEFICIT -${Number(u.frozen.amount || 0).toLocaleString()}</span>}
+                </div>
               </div>
               {note && <div className="text-xs text-cream/70 bg-black/[0.04] rounded px-2 py-1">{note}</div>}
 
@@ -207,6 +221,9 @@ export default function Users() {
                 <button className="btn-ghost text-xs" onClick={forceLogout}>Force Logout</button>
                 <button className="btn-ghost text-xs" onClick={disable2FA}>Disable 2FA</button>
                 <button className="btn-ghost text-xs" onClick={loginAs}>Login as</button>
+                {u.frozen?.active
+                  ? <button className="btn-ghost text-xs text-emerald-500" onClick={resolvePenalty}>Clear Deficit</button>
+                  : <button className="btn-ghost text-xs text-amber-600" onClick={applyPenalty}>Apply Penalty</button>}
                 <button className={`btn-ghost text-xs ${u.suspended ? "text-emerald-500" : "text-amber-600"}`} onClick={toggleSuspend}>{u.suspended ? "Reactivate" : "Suspend"}</button>
                 <button className="btn-ghost text-xs text-red-500" onClick={del}>Delete</button>
               </div>
