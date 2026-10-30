@@ -13,6 +13,13 @@ const DOT = {
 
 const short = a => (a && a.length > 12) ? `${a.slice(0, 6)}…${a.slice(-4)}` : a;
 
+// React-safe avatar: falls back to an initial if the image fails to load.
+function Avatar({ src, name }) {
+  const [broken, setBroken] = useState(false);
+  if (broken || !src) return <span className="h-6 w-6 shrink-0 rounded-full bg-gold2/20 text-gold2 text-[10px] grid place-items-center">{(name || "?").charAt(0).toUpperCase()}</span>;
+  return <img src={src} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover ring-1 ring-line" loading="lazy" onError={() => setBroken(true)} />;
+}
+
 function text(it) {
   const m = `${it.flag ? it.flag + " " : ""}${it.name || "A member"}`;
   switch (it.type) {
@@ -60,8 +67,7 @@ export default function ActivityFeed() {
           return (
             <div key={k} className={`flex items-center gap-2.5 py-1.5 ${isNew ? "toast-in" : ""}`}>
               {it.avatar
-                ? <img src={it.avatar} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover ring-1 ring-line" loading="lazy"
-                    onError={e => { e.currentTarget.replaceWith(Object.assign(document.createElement("span"), { className: "h-6 w-6 shrink-0 rounded-full bg-gold2/20 text-gold2 text-[10px] grid place-items-center", textContent: (it.name || "?").charAt(0).toUpperCase() })); }} />
+                ? <Avatar src={it.avatar} name={it.name} />
                 : <span className={`h-2 w-2 shrink-0 rounded-full ${DOT[it.type] || "bg-cream/40"}`} />}
               <span className="text-sm text-cream/75 flex-1 min-w-0">
                 <span className="truncate block">{text(it)}</span>

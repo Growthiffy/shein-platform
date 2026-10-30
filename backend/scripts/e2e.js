@@ -194,6 +194,27 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     ok("payouts ticker returns items with text", r.status === 200 && r.json.items?.length > 5 && !!r.json.items[0].text);
     r = await req("GET", "/api/stats/leaderboard", { token });
     ok("leaderboard returns ranked items + your rank", r.status === 200 && r.json.items?.[0]?.rank === 1 && typeof r.json.you?.rank === "number");
+    ok("leaderboard rows have a name + avatar (no undefined)", r.json.items.every(x => x.name && !/undefined/.test(x.name) && !!x.avatar));
+
+    // --- social-proof + wallets regression ---
+    r = await req("GET", "/api/stats/payouts-ticker", { token });
+    ok("ticker rows never say 'undefined'", r.status === 200 && r.json.items.every(x => x.name && !/undefined/.test(x.name) && !!x.avatar));
+    r = await req("GET", "/api/activity/feed", { token });
+    ok("activity feed items carry name + avatar (no undefined)", r.status === 200 && r.json.items.length > 0 && r.json.items.every(x => x.name && !/undefined/.test(x.name)));
+    r = await req("GET", "/api/invest/summary", { token });
+    ok("invest summary exposes a separate investBalance", r.status === 200 && typeof r.json.investBalance === "number");
+    r = await req("GET", "/api/wallet/balance", { token });
+    ok("wallet balance splits analysis vs invest", r.status === 200 && typeof r.json.available === "number" && typeof r.json.invest === "number");
+
+    // --- mentor message raises a 'mentor' notification (not 'community') ---
+    r = await req("POST", `/api/community/mentor:${mentorId}:${alice._id}`, { token, body: { text: "mentor, quick question" } });
+    ok("member posts to own mentor room", r.status === 200);
+    r = await req("GET", "/api/admin/notifications?limit=60", { token: ownerTok });
+    ok("mentor-room message raises a 'mentor' notification", r.status === 200 && r.json.items.some(n => n.type === "mentor"));
+
+    // --- one-click persona top-up ---
+    r = await req("POST", "/api/admin/personas/seed", { token: ownerTok, body: { target: 30 } });
+    ok("persona seed tops up to target", r.status === 200 && r.json.total >= 30);
 
     r = await req("GET", "/api/me/achievements", { token });
     ok("achievements list derived (verified unlocked)", r.status === 200 && r.json.items?.find(a => a.key === "verified")?.done === true);

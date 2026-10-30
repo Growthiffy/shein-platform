@@ -84,8 +84,10 @@ router.post("/withdraw", auth, async (req, res) => {
   const s = await getSettings(["minWithdrawalUsd", "withdrawalFeeUsd", "withdrawalProcessingHours", "verificationWithdrawalThreshold"]);
   const minWithdrawalUsd = Number(s.minWithdrawalUsd);
   if (amt < minWithdrawalUsd) return res.status(400).json({ error: `below minimum withdrawal of $${minWithdrawalUsd}` });
-  // Per-tier withdrawal cap.
-  const lvl = levelFor(req.user.balance);
+  // Per-tier withdrawal cap. Tier is judged by the wallet being withdrawn from, so
+  // a big investment wallet isn't capped by a low analysis balance (and vice versa).
+  const tierBal = source === "invest" ? Number(req.user.investBalance || 0) : Number(req.user.balance || 0);
+  const lvl = levelFor(tierBal);
   if (lvl.withdrawLimit != null && amt > lvl.withdrawLimit) {
     return res.status(400).json({ error: `Your ${lvl.name} tier allows up to $${lvl.withdrawLimit.toLocaleString()} per withdrawal. Reach a higher tier to withdraw more.` });
   }
