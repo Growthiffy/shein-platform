@@ -5,11 +5,18 @@ import { api, setToken } from "@/lib/api";
 import Footer from "@/components/Footer";
 
 export default function AuthPage() {
+  const r = useRouter();
   const [mode, setMode] = useState("choose"); // choose | signin | signup | verify
   const [devCode, setDevCode] = useState("");
   const [ref, setRef] = useState("");
   useEffect(() => {
-    try { const r = new URLSearchParams(window.location.search).get("ref"); if (r) { setRef(r.toUpperCase()); setMode("signup"); } } catch {}
+    try {
+      const p = new URLSearchParams(window.location.search);
+      // Admin "login as" hand-off: a one-time member token in ?as= signs in here.
+      const as = p.get("as");
+      if (as) { setToken(as); r.replace("/dashboard"); return; }
+      const rc = p.get("ref"); if (rc) { setRef(rc.toUpperCase()); setMode("signup"); }
+    } catch {}
   }, []);
   return (
     <main className="min-h-screen flex flex-col bg-ink" style={{backgroundImage:"radial-gradient(ellipse at top, rgba(201,162,74,.1), transparent 60%)"}}>
