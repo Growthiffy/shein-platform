@@ -124,9 +124,15 @@ export default function AppShell({ children }) {
             </nav>
 
             <div className="flex items-center gap-2">
-              <Link href="/wallet/deposit" className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gold/30 text-sm">
-                <Wallet size={15} className="text-gold" /> <span className="text-gold font-semibold">${me.balance?.toFixed(2) ?? "0.00"}</span>
-              </Link>
+              <div className="hidden sm:flex items-center rounded-full border border-gold/30 text-sm overflow-hidden">
+                <Link href="/wallet/deposit" className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gold/5" title="Analysis balance">
+                  <Wallet size={15} className="text-gold" /> <span className="text-gold font-semibold">${Number(me.balance || 0).toFixed(2)}</span>
+                </Link>
+                <span className="h-5 w-px bg-gold/20" />
+                <Link href="/invest" className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-emerald-500/5" title="Investment balance">
+                  <TrendingUp size={15} className="text-emerald-500" /> <span className="text-emerald-500 font-semibold">${Number(me.investBalance || 0).toFixed(2)}</span>
+                </Link>
+              </div>
               <div className="relative">
                 <button onClick={readNotifs} className="relative grid h-9 w-9 place-items-center rounded-full border border-gold/20 hover:border-gold/50">
                   <Bell size={16} />
