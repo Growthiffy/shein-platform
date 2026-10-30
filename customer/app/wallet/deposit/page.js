@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
 import { api } from "@/lib/api";
+import { useToast } from "@/components/Toast";
 import QRCode from "qrcode";
 import { Copy, Check } from "lucide-react";
 import StageTracker, { DEPOSIT_STEPS, StageBadge } from "@/components/wallet/StageTracker";
@@ -30,6 +31,7 @@ function Body() {
   const [qr, setQr] = useState("");
   const [limits, setLimits] = useState(null);
   const [busy, setBusy] = useState(false);
+  const toast = useToast();
 
   const address = addrs.find(a => a.chain === chain)?.address || "";
 
@@ -51,6 +53,7 @@ function Body() {
     try {
       const d = await api("/api/wallet/deposit", { method: "POST", body: { amount: Number(amount), chain, address, txHash, slipUrl: slipUrl.trim() || undefined } });
       setSlip(d.tx); setAmount(""); setTxHash(""); setSlipUrl(""); loadHistory();
+      toast({ text: "Deposit submitted — pending review", type: "info" });
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
   }
 

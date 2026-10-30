@@ -4,6 +4,7 @@ import Link from "next/link";
 import AppShell, { useMe } from "@/components/AppShell";
 import { api } from "@/lib/api";
 import { CHAINS } from "@/lib/constants";
+import { useToast } from "@/components/Toast";
 import StageTracker, { WITHDRAW_STEPS, StageBadge } from "@/components/wallet/StageTracker";
 
 export default function WithdrawPage() { return <AppShell><Body /></AppShell>; }
@@ -21,6 +22,7 @@ function Body() {
   const [limits, setLimits] = useState(null);
   const [bal, setBal] = useState(null);
   const [busy, setBusy] = useState(false);
+  const toast = useToast();
 
   async function load() {
     const h = await api("/api/wallet/history"); setHistory(h.items.filter(x => x.type === "withdrawal"));
@@ -38,7 +40,7 @@ function Body() {
     setErr(""); setNeedsVerify(false); setBusy(true);
     try {
       const d = await api("/api/wallet/withdraw", { method: "POST", body: { amount: Number(amount), chain, address } });
-      setReceipt(d.tx); setAmount(""); await Promise.all([load(), refresh()]);
+      setReceipt(d.tx); setAmount(""); toast({ text: "Withdrawal request submitted", type: "info" }); await Promise.all([load(), refresh()]);
     } catch (e) { setErr(e.message); if (/verification/i.test(e.message)) setNeedsVerify(true); }
     finally { setBusy(false); }
   }

@@ -1,13 +1,28 @@
 "use client";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { api, getToken, setToken } from "@/lib/api";
 import { LayoutGrid, LineChart, TrendingUp, Users, User, Bell, LogOut, Wallet } from "lucide-react";
 import Footer from "@/components/Footer";
+import ToastProvider, { useToast } from "@/components/Toast";
 
 const MeCtx = createContext(null);
 export function useMe() { return useContext(MeCtx); }
+
+// Watches the live balance and toasts when it changes between refreshes.
+function BalanceWatcher({ balance }) {
+  const toast = useToast();
+  const prev = useRef(null);
+  useEffect(() => {
+    if (balance == null) return;
+    if (prev.current != null && Math.abs(balance - prev.current) >= 0.01) {
+      toast({ text: `Balance updated: $${balance.toFixed(2)}`, type: "success" });
+    }
+    prev.current = balance;
+  }, [balance, toast]);
+  return null;
+}
 
 const NAV = [
   { href: "/dashboard",  label: "Home",      icon: LayoutGrid },
@@ -50,7 +65,9 @@ export default function AppShell({ children }) {
   const unread = (me.notifications || []).filter(n => !n.read).length;
 
   return (
+    <ToastProvider>
     <MeCtx.Provider value={{ me, setMe, refresh }}>
+      <BalanceWatcher balance={me.balance} />
       <div className="min-h-screen bg-ink text-cream">
         {/* top bar */}
         <header className="sticky top-0 z-40 border-b border-gold/10 bg-ink/85 backdrop-blur">
@@ -121,5 +138,6 @@ export default function AppShell({ children }) {
         </nav>
       </div>
     </MeCtx.Provider>
+    </ToastProvider>
   );
 }

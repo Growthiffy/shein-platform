@@ -4,6 +4,7 @@ import Link from "next/link";
 import AppShell, { useMe } from "@/components/AppShell";
 import { api } from "@/lib/api";
 import { CountUp, Confetti, StarRating, Skeleton } from "@/components/ui";
+import { useToast } from "@/components/Toast";
 
 export default function AnalystPage() { return <AppShell><Body /></AppShell>; }
 
@@ -21,6 +22,7 @@ const CAT_COLORS = {
 
 function Body() {
   const { me, refresh } = useMe();
+  const toast = useToast();
   const [next, setNext] = useState(null);
   const [form, setForm] = useState({ demand: 0, quality: 0, price: 0, rec: "", comment: "" });
   const [err, setErr] = useState("");
@@ -47,6 +49,7 @@ function Body() {
       }});
       resetForm();
       setResult(d);
+      toast({ text: `Commission earned: +$${d.commission.toFixed(2)}`, type: "success" });
       await refresh();
       if (d.cycleComplete) {
         setConfetti(true);
