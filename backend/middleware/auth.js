@@ -14,6 +14,10 @@ async function auth(req, res, next) {
     if (data.tv != null && data.tv !== (user.tokenVersion || 0)) {
       return res.status(401).json({ error: "session expired" });
     }
+    // Suspended members are locked out of every authenticated route (admins exempt).
+    if (user.suspended && !user.isAdmin && user.role !== "admin") {
+      return res.status(403).json({ error: "account suspended", suspended: true });
+    }
     req.user = user;
     next();
   } catch (e) {

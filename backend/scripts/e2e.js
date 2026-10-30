@@ -203,6 +203,70 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     r = await req("POST", "/api/community/daily/share-proof", { token, body: { kind: "invest" } });
     ok("member shares real invest proof", r.status === 200 && r.json.msg?.proof?.kind === "invest");
 
+    // ================= ADMIN MEMBER MANAGEMENT =================
+    // Throwaway member for destructive ops.
+    r = await req("POST", "/api/auth/signup", { body: { email: "victim@test.com", password: "password123" } });
+    r = await req("POST", "/api/auth/verify", { body: { email: "victim@test.com", code: r.json.devCode } });
+    let victimTok = r.json.token;
+    const victim = await User.findOne({ email: "victim@test.com" });
+
+    r = await req("GET", `/api/admin/users/${victim._id}`, { token: ownerTok });
+    ok("admin member detail returns user + related", r.status === 200 && r.json.user?.email === "victim@test.com" && Array.isArray(r.json.transactions));
+
+    r = await req("PATCH", `/api/admin/users/${victim._id}`, { token: ownerTok, body: { balance: 777, creditScore: 60, level: "gold" } });
+    ok("admin edits member fields", r.status === 200 && r.json.user?.balance === 777 && r.json.user?.creditScore === 60);
+    r = await req("PATCH", `/api/admin/users/${victim._id}`, { token: ownerTok, body: { email: "alice@test.com" } });
+    ok("admin edit rejects duplicate email -> 409", r.status === 409);
+
+    r = await req("POST", `/api/admin/users/${victim._id}/verification`, { token: ownerTok, body: { level: "premium", country: "UK" } });
+    ok("admin sets verification level", r.status === 200 && r.json.user?.verification?.level === "premium");
+
+    r = await req("POST", `/api/admin/users/${victim._id}/investment`, { token: ownerTok, body: { tier: 3, amount: 5000 } });
+    ok("admin sets member investment", r.status === 200 && r.json.user?.investment?.amount === 5000);
+
+    r = await req("POST", `/api/admin/users/${victim._id}/login-as`, { token: ownerTok });
+    ok("admin login-as returns a member token", r.status === 200 && !!r.json.token);
+    const asToken = r.json.token;
+    r = await req("GET", "/api/me", { token: asToken });
+    ok("login-as token acts as the member", r.status === 200 && r.json.user?.email === "victim@test.com");
+
+    // password reset invalidates old sessions
+    r = await req("POST", `/api/admin/users/${victim._id}/password`, { token: ownerTok, body: { password: "newpass1234" } });
+    ok("admin resets member password", r.status === 200);
+    r = await req("GET", "/api/me", { token: victimTok });
+    ok("old session invalid after password reset", r.status === 401);
+    r = await req("POST", "/api/auth/login", { body: { email: "victim@test.com", password: "newpass1234" } });
+    ok("member logs in with admin-set password", r.status === 200 && !!r.json.token);
+    victimTok = r.json.token;
+
+    // suspend blocks access
+    r = await req("POST", `/api/admin/users/${victim._id}/suspend`, { token: ownerTok, body: { suspended: true, reason: "fraud review" } });
+    ok("admin suspends member", r.status === 200 && r.json.user?.suspended === true);
+    // old token is also invalidated (tokenVersion bumped) -> 401; a fresh token hits the suspended gate -> 403.
+    r = await req("GET", "/api/me", { token: victimTok });
+    ok("suspended member old session invalid", r.status === 401 || r.status === 403);
+    const freshSuspended = (await req("POST", `/api/admin/users/${victim._id}/login-as`, { token: ownerTok })).json.token;
+    r = await req("GET", "/api/me", { token: freshSuspended });
+    ok("suspended member blocked from API -> 403", r.status === 403 && r.json.suspended === true);
+    r = await req("POST", "/api/auth/login", { body: { email: "victim@test.com", password: "newpass1234" } });
+    ok("suspended member blocked from login -> 403", r.status === 403);
+    r = await req("POST", `/api/admin/users/${victim._id}/suspend`, { token: ownerTok, body: { suspended: false } });
+    ok("admin unsuspends member", r.status === 200 && r.json.user?.suspended === false);
+
+    r = await req("POST", `/api/admin/users/${victim._id}/2fa-disable`, { token: ownerTok });
+    ok("admin disables member 2FA", r.status === 200);
+
+    // deleting your own admin account is blocked
+    r = await req("DELETE", `/api/admin/users/${owner._id}`, { token: ownerTok });
+    ok("admin cannot delete self -> 400", r.status === 400);
+    r = await req("DELETE", `/api/admin/users/${victim._id}`, { token: ownerTok });
+    ok("admin deletes member", r.status === 200 && r.json.ok === true);
+    ok("deleted member is gone", !(await User.findById(victim._id)));
+
+    // limited admin (no members perm) cannot manage members
+    r = await req("DELETE", `/api/admin/users/${alice._id}`, { token: limitedTok });
+    ok("non-members-perm admin blocked from delete -> 403", r.status === 403);
+
   } catch (e) {
     ok("suite ran without throwing", false, e.message + "\n" + e.stack);
   }

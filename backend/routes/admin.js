@@ -1,9 +1,11 @@
 const router = require("express").Router();
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const { auth, admin } = require("../middleware/auth");
 const User = require("../models/User");
 const Product = require("../models/Product");
 const Transaction = require("../models/Transaction");
+const AnalystSubmission = require("../models/AnalystSubmission");
 const DepositWallet = require("../models/DepositWallet");
 const Mentor = require("../models/Mentor");
 const ChatMessage = require("../models/ChatMessage");
@@ -258,7 +260,33 @@ router.post("/users/:id/notify", async (req, res) => {
 });
 
 // Members (customers only — admin operators are managed separately under /admins).
-router.get("/users", async (req, res) => res.json({ items: await User.find({ role: "customer" }).sort({ createdAt: -1 }).limit(500) }));
+// Supports ?q= search (username/email/accountNumber) and ?status=suspended|active.
+router.get("/users", async (req, res) => {
+  const filter = { role: "customer" };
+  if (req.query.status === "suspended") filter.suspended = true;
+  if (req.query.status === "active") filter.suspended = { $ne: true };
+  const q = String(req.query.q || "").trim();
+  if (q) {
+    const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    filter.$or = [{ username: rx }, { email: rx }];
+    if (/^\d+$/.test(q)) filter.$or.push({ accountNumber: Number(q) });
+  }
+  res.json({ items: await User.find(filter).sort({ createdAt: -1 }).limit(500) });
+});
+
+// Full detail for one member: profile + related records (for the admin member view).
+router.get("/users/:id", async (req, res) => {
+  const u = await User.findById(req.params.id);
+  if (!u) return res.status(404).json({ error: "no user" });
+  const [txs, submissions, logins, referrals, supportCount] = await Promise.all([
+    Transaction.find({ user: u._id }).sort({ createdAt: -1 }).limit(50),
+    AnalystSubmission.countDocuments({ user: u._id }),
+    LoginHistory.find({ user: u._id }).sort({ createdAt: -1 }).limit(20),
+    User.countDocuments({ referredBy: u._id }),
+    SupportMessage.countDocuments({ user: u._id }),
+  ]);
+  res.json({ user: u, transactions: txs, submissions, logins, referrals, supportCount });
+});
 
 // A member's login history (IP / device / time).
 router.get("/users/:id/logins", async (req, res) => {
@@ -266,18 +294,153 @@ router.get("/users/:id/logins", async (req, res) => {
   res.json({ items });
 });
 
-// Only these fields may be set through the member edit form. role/isAdmin are NOT
-// here: members and admin operators are separate — promote/create operators under
-// the Admins page instead. Blocks mass-assignment of passwordHash, email, etc.
-const USER_EDITABLE = ["balance", "dailySalary", "level", "username", "emailVerified", "mentor", "rewardCredit", "totalEarned", "communityAccess", "creditScore", "phone"];
+// Fields settable through the member edit form. role/isAdmin/password are handled
+// by dedicated endpoints; email/username are checked for uniqueness below.
+const USER_EDITABLE = ["balance", "dailySalary", "level", "username", "email", "emailVerified", "mentor", "rewardCredit", "totalEarned", "communityAccess", "creditScore", "phone", "avatar", "loginAlerts", "onboardingComplete", "referralCode"];
 router.patch("/users/:id", async (req, res) => {
   const u = await User.findById(req.params.id);
-  if (!u) return res.status(404).json({ error: "no user" });
-  for (const k of USER_EDITABLE) {
-    if (k in (req.body || {})) u[k] = req.body[k];
+  if (!u || u.role === "admin") return res.status(404).json({ error: "no member" });
+  const b = req.body || {};
+  // Uniqueness checks for identity fields.
+  if (typeof b.email === "string" && b.email.trim() && b.email.trim().toLowerCase() !== (u.email || "")) {
+    const e = b.email.trim().toLowerCase();
+    if (await User.findOne({ email: e, _id: { $ne: u._id } })) return res.status(409).json({ error: "email already in use" });
+    b.email = e;
   }
-  await u.save(); // pre-save hook keeps role <-> isAdmin in sync
+  if (typeof b.username === "string" && b.username.trim() && b.username.trim() !== (u.username || "")) {
+    if (await User.findOne({ username: b.username.trim(), _id: { $ne: u._id } })) return res.status(409).json({ error: "username already in use" });
+    b.username = b.username.trim();
+  }
+  for (const k of USER_EDITABLE) if (k in b) u[k] = b[k];
+  await u.save();
   res.json({ user: u });
+});
+
+// Set a new login password for a member (admin reset). Invalidates old sessions.
+router.post("/users/:id/password", async (req, res) => {
+  const pw = String(req.body?.password || "");
+  if (pw.length < 8) return res.status(400).json({ error: "password must be at least 8 characters" });
+  const u = await User.findById(req.params.id);
+  if (!u || u.role === "admin") return res.status(404).json({ error: "no member" });
+  u.passwordHash = await bcrypt.hash(pw, 10);
+  u.tokenVersion = (u.tokenVersion || 0) + 1;   // sign out existing sessions
+  await u.save();
+  res.json({ ok: true });
+});
+
+// Suspend / unsuspend a member (blocks login + all authenticated access).
+router.post("/users/:id/suspend", async (req, res) => {
+  const u = await User.findById(req.params.id);
+  if (!u || u.role === "admin") return res.status(404).json({ error: "no member" });
+  const suspend = req.body?.suspended !== false;
+  u.suspended = suspend;
+  u.suspendedReason = suspend ? (String(req.body?.reason || "").slice(0, 200) || "Suspended by admin") : undefined;
+  u.suspendedAt = suspend ? new Date() : undefined;
+  if (suspend) u.tokenVersion = (u.tokenVersion || 0) + 1;   // kick active sessions
+  u.notifications.push({ text: suspend ? "Your account has been suspended. Contact support." : "Your account has been reactivated.", type: suspend ? "error" : "success" });
+  await u.save();
+  res.json({ user: u });
+});
+
+// Force sign-out of all the member's devices.
+router.post("/users/:id/force-logout", async (req, res) => {
+  const u = await User.findById(req.params.id);
+  if (!u) return res.status(404).json({ error: "no user" });
+  u.tokenVersion = (u.tokenVersion || 0) + 1;
+  await u.save();
+  res.json({ ok: true });
+});
+
+// Disable a member's 2FA (e.g. they lost their device).
+router.post("/users/:id/2fa-disable", async (req, res) => {
+  const u = await User.findById(req.params.id);
+  if (!u) return res.status(404).json({ error: "no user" });
+  u.twoFactorEnabled = false;
+  u.twoFactorSecret = undefined;
+  await u.save();
+  res.json({ ok: true });
+});
+
+// Set any verification sub-fields (and level) directly.
+const VERIFY_FIELDS = ["level", "fullName", "phone", "country", "idType", "idNumber", "idImageUrl", "reviewNote"];
+router.post("/users/:id/verification", async (req, res) => {
+  const u = await User.findById(req.params.id);
+  if (!u) return res.status(404).json({ error: "no user" });
+  if (!u.verification) u.verification = {};
+  const b = req.body || {};
+  if (b.level && !["none", "basic", "standard", "pending_premium", "premium"].includes(b.level)) return res.status(400).json({ error: "bad level" });
+  for (const k of VERIFY_FIELDS) if (k in b) u.verification[k] = b[k];
+  u.verification.reviewedAt = new Date();
+  await u.save();
+  res.json({ user: u });
+});
+
+// Set or clear a member's investment directly.
+router.post("/users/:id/investment", async (req, res) => {
+  const u = await User.findById(req.params.id);
+  if (!u) return res.status(404).json({ error: "no user" });
+  const b = req.body || {};
+  if (b.clear) {
+    u.investment = { tier: 0, amount: 0, startedAt: null, lockUntil: null, lastPayoutAt: null };
+  } else {
+    u.investment = u.investment || {};
+    if (b.tier != null) u.investment.tier = Number(b.tier);
+    if (b.amount != null) u.investment.amount = Number(b.amount);
+    if (b.lockUntil !== undefined) u.investment.lockUntil = b.lockUntil ? new Date(b.lockUntil) : null;
+    if (!u.investment.startedAt) u.investment.startedAt = new Date();
+    if (!u.investment.lastPayoutAt) u.investment.lastPayoutAt = new Date();
+  }
+  await u.save();
+  res.json({ user: u });
+});
+
+// Manage a member's saved payout wallets: remove one, or clear its 24h hold.
+router.post("/users/:id/payout-wallet/:idx", async (req, res) => {
+  const u = await User.findById(req.params.id);
+  if (!u) return res.status(404).json({ error: "no user" });
+  const i = Number(req.params.idx);
+  if (!u.payoutWallets || !u.payoutWallets[i]) return res.status(404).json({ error: "no wallet" });
+  if (req.body?.action === "remove") u.payoutWallets.splice(i, 1);
+  else if (req.body?.action === "clear-hold") { u.payoutWallets[i].active = true; }
+  else return res.status(400).json({ error: "action must be remove or clear-hold" });
+  await u.save();
+  res.json({ user: u });
+});
+
+// Clear all of a member's notifications.
+router.post("/users/:id/notifications/clear", async (req, res) => {
+  const u = await User.findById(req.params.id);
+  if (!u) return res.status(404).json({ error: "no user" });
+  u.notifications = [];
+  await u.save();
+  res.json({ ok: true });
+});
+
+// Impersonate: issue a short-lived member token so an admin can see / act in the
+// member's own view for support. Honours the member's current tokenVersion.
+router.post("/users/:id/login-as", async (req, res) => {
+  const u = await User.findById(req.params.id);
+  if (!u || u.role === "admin") return res.status(404).json({ error: "no member" });
+  const token = jwt.sign({ id: u._id.toString(), tv: u.tokenVersion || 0 }, process.env.JWT_SECRET, { expiresIn: "2h" });
+  res.json({ token, user: { id: u._id, username: u.username, email: u.email } });
+});
+
+// Permanently delete a member and cascade their owned records. Customers only.
+router.delete("/users/:id", async (req, res) => {
+  if (String(req.params.id) === String(req.user._id)) return res.status(400).json({ error: "cannot delete yourself" });
+  const u = await User.findById(req.params.id);
+  if (!u) return res.status(404).json({ error: "no user" });
+  if (u.role === "admin") return res.status(400).json({ error: "use the Admins page to remove operators" });
+  await Promise.all([
+    Transaction.deleteMany({ user: u._id }),
+    AnalystSubmission.deleteMany({ user: u._id }),
+    LoginHistory.deleteMany({ user: u._id }),
+    SupportMessage.deleteMany({ user: u._id }),
+    ChatMessage.deleteMany({ user: u._id }),
+    User.updateMany({ referredBy: u._id }, { $set: { referredBy: null } }),
+  ]);
+  await u.deleteOne();
+  res.json({ ok: true });
 });
 router.post("/users/:id/reset-cycle", async (req, res) => {
   const u = await User.findById(req.params.id);

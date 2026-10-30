@@ -96,6 +96,12 @@ const UserSchema = new mongoose.Schema({
     mentorRooms: { type: Boolean, default: true },
   },
 
+  // Account suspension (admin-controlled). A suspended member cannot log in or
+  // use any authenticated endpoint until an admin lifts it.
+  suspended:       { type: Boolean, default: false },
+  suspendedReason: { type: String },
+  suspendedAt:     { type: Date },
+
   // RBAC. `role` is the source of truth; `isAdmin` kept in sync for backward compat.
   role:    { type: String, enum: ["customer", "admin"], default: "customer" },
   isAdmin: { type: Boolean, default: false },
