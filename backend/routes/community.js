@@ -2,6 +2,7 @@ const router = require("express").Router();
 const { auth } = require("../middleware/auth");
 const ChatMessage = require("../models/ChatMessage");
 const { maybePost, currentTyping } = require("../utils/personaTick");
+const { maybeMentorReply } = require("../utils/mentorTick");
 
 // Resolve the access gate a group maps to. daily/invest map to their own flag;
 // any mentor:<id> room maps to mentorRooms. Unknown groups are allowed.
@@ -20,8 +21,9 @@ function allowed(user, group) {
 router.get("/:group", auth, async (req, res) => {
   const group = req.params.group;
   if (!allowed(req.user, group)) return res.status(403).json({ error: "no access to this group" });
-  // Fire persona chatter (best-effort; never blocks chat).
+  // Fire persona chatter / mentor auto-reply (best-effort; never blocks chat).
   await maybePost(group).catch(() => {});
+  await maybeMentorReply(group).catch(() => {});
   const items = await ChatMessage.find({ group }).sort({ createdAt: -1 }).limit(200);
   const typing = await currentTyping(group).catch(() => []);
   res.json({ items: items.reverse(), typing });
