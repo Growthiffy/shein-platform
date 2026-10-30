@@ -43,7 +43,28 @@ const UserSchema = new mongoose.Schema({
     lastPayoutAt:{ type: Date },
   },
 
-  payoutWallets: [{ chain: String, address: String, label: String }],
+  payoutWallets: [{ chain: String, address: String, label: String, addedAt: Date, active: { type: Boolean, default: true } }],
+
+  // KYC / verification. All optional with safe defaults so old docs keep working.
+  verification: {
+    level:      { type: String, enum: ["none", "basic", "standard", "pending_premium", "premium"], default: "none" },
+    fullName:   { type: String },
+    phone:      { type: String },
+    country:    { type: String },
+    idType:     { type: String },   // passport | national_id | drivers_license
+    idNumber:   { type: String },
+    idImageUrl: { type: String },   // stored, never actually verified
+    submittedAt:{ type: Date },
+    reviewedAt: { type: Date },
+    reviewNote: { type: String },
+  },
+
+  // Security
+  antiPhishCode: { type: String },
+  twoFactorEnabled: { type: Boolean, default: false },
+  twoFactorSecret:  { type: String },
+  loginAlerts: { type: Boolean, default: true },
+  tokenVersion: { type: Number, default: 0 },
 
   analyst: {
     cycleCount:   { type: Number, default: 0 },     // products submitted in current cycle (0-27)

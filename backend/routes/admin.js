@@ -250,6 +250,8 @@ router.post("/tx/:id/approve", async (req, res) => {
   if (!tx) return res.status(404).json({ error: "no tx" });
   if (tx.status !== "pending") return res.status(400).json({ error: "already resolved" });
   tx.status = "approved";
+  tx.processingStage = "completed";
+  tx.stageHistory.push({ stage: "completed", at: new Date(), note: "Approved by staff" });
   if (tx.type === "deposit") {
     const u = await User.findById(tx.user);
     u.balance = +(u.balance + tx.amount).toFixed(2);
@@ -263,12 +265,52 @@ router.post("/tx/:id/reject", async (req, res) => {
   if (!tx) return res.status(404).json({ error: "no tx" });
   if (tx.status !== "pending") return res.status(400).json({ error: "already resolved" });
   tx.status = "rejected";
+  tx.processingStage = "rejected";
+  tx.stageHistory.push({ stage: "rejected", at: new Date(), note: "Rejected by staff" });
   if (tx.type === "withdrawal") {
     const u = await User.findById(tx.user);
     u.balance = +(u.balance + tx.amount).toFixed(2);
     await u.save();
   }
   await tx.save();
+  res.json({ tx });
+});
+
+// Richer stage transitions for deposits/withdrawals. Terminal stages keyed off
+// the current status so balance is never credited/refunded twice.
+const TX_STAGES = ["submitted", "under_review", "processing", "completed", "requires_verification", "rejected"];
+router.post("/tx/:id/stage", async (req, res) => {
+  const { stage, note } = req.body || {};
+  if (!TX_STAGES.includes(stage)) return res.status(400).json({ error: "bad stage" });
+  const tx = await Transaction.findById(req.params.id);
+  if (!tx) return res.status(404).json({ error: "no tx" });
+
+  tx.processingStage = stage;
+  tx.stageHistory.push({ stage, at: new Date(), note: note || undefined });
+
+  if (stage === "completed" && tx.status === "pending") {
+    if (tx.type === "deposit") {
+      const u = await User.findById(tx.user);
+      if (u) { u.balance = +(u.balance + tx.amount).toFixed(2); await u.save(); }
+      tx.status = "approved";
+    } else {
+      tx.status = "complete";
+    }
+  }
+  if (stage === "rejected" && tx.status === "pending") {
+    tx.status = "rejected";
+    if (tx.type === "withdrawal") {
+      const u = await User.findById(tx.user);
+      if (u) { u.balance = +(u.balance + tx.amount).toFixed(2); await u.save(); }
+    }
+  }
+  await tx.save();
+
+  const u = await User.findById(tx.user);
+  if (u) {
+    u.notifications.push({ text: `Your ${tx.type} of $${tx.amount} is now ${stage.replace(/_/g, " ")}.`, type: stage === "rejected" ? "warning" : "info" });
+    await u.save();
+  }
   res.json({ tx });
 });
 

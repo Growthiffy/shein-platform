@@ -159,7 +159,16 @@ function publicUser(u) {
     rewardCredit: u.rewardCredit || 0,
     accountNumber: u.accountNumber, phone: u.phone, avatar: u.avatar,
     creditScore: u.creditScore ?? 100, referralCode: u.referralCode,
-    createdAt: u.createdAt,
+    createdAt: u.createdAt, lastSalaryAt: u.lastSalaryAt,
+    verification: {
+      level: u.verification?.level || "none",
+      fullName: u.verification?.fullName, phone: u.verification?.phone,
+      country: u.verification?.country, idType: u.verification?.idType,
+      submittedAt: u.verification?.submittedAt, reviewedAt: u.verification?.reviewedAt,
+    },
+    antiPhishSet: !!u.antiPhishCode,
+    twoFactorEnabled: !!u.twoFactorEnabled,
+    loginAlerts: u.loginAlerts !== false,
     notifications: (u.notifications || []).slice(-30).reverse(),
     communityAccess: {
       daily:       u.communityAccess?.daily !== false,

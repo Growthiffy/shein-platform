@@ -11,6 +11,16 @@ const Schema = new mongoose.Schema({
   note:    { type: String },
   slipUrl: { type: String }, // optional receipt image
   meta:    { type: Object },
+
+  // Richer deposit/withdrawal lifecycle (presentation on top of `status`).
+  processingStage: { type: String, enum: ["submitted", "under_review", "processing", "completed", "requires_verification", "rejected"], default: "submitted" },
+  stageHistory: [{
+    stage: { type: String },
+    at:    { type: Date, default: Date.now },
+    note:  { type: String },
+  }],
+  estimatedCompletionAt: { type: Date },
+  networkFee: { type: Number, default: 0 },
 }, { timestamps: true });
 
 module.exports = mongoose.model("Transaction", Schema);

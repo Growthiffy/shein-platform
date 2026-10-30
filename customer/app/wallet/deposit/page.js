@@ -2,7 +2,9 @@
 import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
 import { api } from "@/lib/api";
+import QRCode from "qrcode";
 import { Copy, Check } from "lucide-react";
+import StageTracker, { DEPOSIT_STEPS, StageBadge } from "@/components/wallet/StageTracker";
 
 export default function DepositPage() { return <AppShell><Body /></AppShell>; }
 
@@ -25,38 +27,59 @@ function Body() {
   const [slip, setSlip] = useState(null);
   const [history, setHistory] = useState([]);
   const [err, setErr] = useState("");
+  const [qr, setQr] = useState("");
+  const [limits, setLimits] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const address = addrs.find(a => a.chain === chain)?.address || "";
 
   function loadHistory() { api("/api/wallet/history").then(d => setHistory(d.items.filter(x => x.type === "deposit"))); }
   useEffect(() => {
     api("/api/wallet/deposit-addresses").then(d => { setAddrs(d.items); if (d.items[0]) setChain(d.items[0].chain); });
+    api("/api/wallet/limits").then(setLimits).catch(() => {});
     loadHistory();
   }, []);
 
+  // Generate a QR data URL for the selected deposit address.
+  useEffect(() => {
+    if (!address) { setQr(""); return; }
+    QRCode.toDataURL(address, { margin: 1, width: 220 }).then(setQr).catch(() => setQr(""));
+  }, [address]);
+
   async function submit() {
-    setErr("");
+    setErr(""); setBusy(true);
     try {
-      const picked = addrs.find(a => a.chain === chain);
-      const d = await api("/api/wallet/deposit", { method: "POST", body: { amount: Number(amount), chain, address: picked?.address, txHash, slipUrl: slipUrl.trim() || undefined } });
+      const d = await api("/api/wallet/deposit", { method: "POST", body: { amount: Number(amount), chain, address, txHash, slipUrl: slipUrl.trim() || undefined } });
       setSlip(d.tx); setAmount(""); setTxHash(""); setSlipUrl(""); loadHistory();
-    } catch (e) { setErr(e.message); }
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
   }
 
   return (
     <div className="page grid md:grid-cols-2 gap-6">
       <div className="card p-6">
         <h2 className="font-display text-2xl text-gold">Deposit</h2>
+        {limits && (
+          <div className="text-xs text-cream/50 mt-1">
+            Daily limit: ${Number(limits.depositDailyLimit).toLocaleString()} / Monthly limit: ${Number(limits.depositMonthlyLimit).toLocaleString()}
+          </div>
+        )}
         <label className="block mt-4"><span className="label">Chain</span>
           <select value={chain} onChange={e => setChain(e.target.value)} className="field mt-1">
             {addrs.map(a => <option key={a._id} value={a.chain}>{a.chain}</option>)}
           </select>
         </label>
-        <div className="mt-3 p-3 bg-ink2 rounded-lg border border-line">
-          <div className="flex items-center justify-between">
-            <div className="label">Company Address</div>
-            <CopyBtn text={addrs.find(a => a.chain === chain)?.address || ""} />
+
+        <div className="mt-3 flex flex-col items-center gap-3">
+          {qr && <img src={qr} alt="Deposit address QR" className="rounded-lg border border-line bg-white p-1" width={180} height={180} />}
+          <div className="w-full p-3 bg-ink2 rounded-lg border border-line">
+            <div className="flex items-center justify-between">
+              <div className="label">Company Address</div>
+              <CopyBtn text={address} />
+            </div>
+            <div className="break-all text-sm text-gold mt-1">{address || "—"}</div>
           </div>
-          <div className="break-all text-sm text-gold mt-1">{addrs.find(a => a.chain === chain)?.address || "—"}</div>
         </div>
+
         <Input label="Amount (USD)" value={amount} onChange={setAmount} type="number" />
         <div className="mt-2 flex flex-wrap gap-2">
           {[50, 100, 500, 1000].map(v => (
@@ -65,19 +88,19 @@ function Body() {
         </div>
         <Input label="Your TX Hash" value={txHash} onChange={setTxHash} />
         <Input label="Payment Slip URL (optional)" value={slipUrl} onChange={setSlipUrl} />
-        {err && <div className="text-red-400 text-sm mt-2">{err}</div>}
-        <button className="btn-gold mt-4 w-full" onClick={submit}>SUBMIT DEPOSIT</button>
+        {err && <div className="text-red-500 text-sm mt-2">{err}</div>}
+        <button className="btn-gold mt-4 w-full" onClick={submit} disabled={busy || !amount}>{busy ? "SUBMITTING…" : "SUBMIT DEPOSIT"}</button>
       </div>
 
       <div className="card p-6">
         <h3 className="font-display text-xl text-gold">Receipt</h3>
-        {slip ? <Slip tx={slip} /> : <p className="text-cream/60 text-sm mt-2">A professional slip appears here after you submit.</p>}
+        {slip ? <Slip tx={slip} /> : <p className="text-cream/60 text-sm mt-2">A professional slip + tracker appears here after you submit.</p>}
         <h4 className="label mt-6">History</h4>
         <div className="mt-2 divide-y divide-black/[0.06]">
           {history.map(h => (
-            <div key={h._id} className="py-2 text-sm flex justify-between">
-              <span>{new Date(h.createdAt).toLocaleDateString()} · {h.chain}</span>
-              <span className={`font-semibold ${h.status === "approved" ? "text-gold" : "text-cream/60"}`}>${h.amount} · {h.status}</span>
+            <div key={h._id} className="py-2 text-sm flex items-center justify-between gap-2">
+              <span className="text-cream/70">{new Date(h.createdAt).toLocaleDateString()} · {h.chain}</span>
+              <span className="flex items-center gap-2"><b>${h.amount}</b><StageBadge stage={h.processingStage} /></span>
             </div>
           ))}
           {!history.length && <div className="text-cream/50 text-sm py-2">No deposits yet.</div>}
@@ -97,8 +120,9 @@ function Slip({ tx }) {
       <div className="text-center font-display text-gold text-lg">SHEIN · DEPOSIT RECEIPT</div>
       <div className="text-center text-xs text-cream/50 tracking-widest">TX {String(tx._id).slice(-10).toUpperCase()}</div>
       <div className="mt-3 text-sm space-y-1">
-        <Row k="Amount" v={`$${tx.amount}`} /><Row k="Chain" v={tx.chain} /><Row k="Status" v={tx.status} /><Row k="Date" v={new Date(tx.createdAt).toLocaleString()} />
+        <Row k="Amount" v={`$${tx.amount}`} /><Row k="Chain" v={tx.chain} /><Row k="Date" v={new Date(tx.createdAt).toLocaleString()} />
       </div>
+      <StageTracker steps={DEPOSIT_STEPS} current={tx.processingStage} history={tx.stageHistory} />
     </div>
   );
 }
