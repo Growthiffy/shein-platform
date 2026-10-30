@@ -60,7 +60,12 @@ export default function AppShell({ children }) {
     // Live poll: keep balance / notifications / combo / maintenance fresh without a
     // manual refresh. Silent — a transient poll error never logs the member out.
     const t = setInterval(() => {
-      api("/api/me").then(d => { setMaint(null); setMe(d.user); }).catch(e => { if (e?.status === 503 || e?.data?.maintenance) setMaint(e.data?.error || e.message); });
+      api("/api/me").then(d => { setMaint(null); setMe(d.user); }).catch(e => {
+        if (e?.status === 503 || e?.data?.maintenance) setMaint(e.data?.error || e.message);
+        // Definitive auth failure (expired/revoked/suspended) → sign out. Network
+        // blips have no status and are left silent so they don't log the member out.
+        else if (e?.status === 401 || e?.status === 403) { setToken(null); r.push("/auth"); }
+      });
     }, 12000);
     return () => clearInterval(t);
   }, []);

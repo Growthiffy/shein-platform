@@ -41,11 +41,15 @@ export default function MyJuniors() {
 
   useEffect(() => { loadMentees(); }, []);
   // Deep-link from a mentor notification: /my-juniors?mentee=<id> opens that chat.
+  // Runs ONCE after the list first loads (a ref guard stops it re-firing on every
+  // poll and yanking the operator back to this chat).
+  const deepLinked = useRef(false);
   useEffect(() => {
+    if (deepLinked.current || !all.length) return;
     const id = new URLSearchParams(window.location.search).get("mentee");
-    if (!id || !all.length) return;
+    if (!id) { deepLinked.current = true; return; }
     const u = all.find(x => String(x._id) === String(id));
-    if (u) { setActiveMentor(u.mentorId); openRoom(u); }
+    if (u) { deepLinked.current = true; setActiveMentor(u.mentorId); openRoom(u); }
   }, [all.length]);
   // Poll the list for new messages / unread, and the open room for replies.
   useEffect(() => {
