@@ -40,8 +40,11 @@ router.get("/next", auth, async (req, res) => {
   const u = req.user;
 
   // --- Combo: active one always shows; else a pending one that is now due. ---
+  // "Due" = the member's NEXT order of the day has reached comboAt (matches
+  // Cushman: comboAt is the order number today, so comboAt <= ordersToday + 1).
+  const ordersTodayNow = u.analyst.lastOrderDay === dayStr() ? (u.analyst.ordersToday || 0) : 0;
   let combo = await Combo.findOne({ user: u._id, status: "active" }).sort({ comboAt: 1 });
-  if (!combo) combo = await Combo.findOne({ user: u._id, status: "pending", comboAt: { $lte: (u.analyst.cycleCount || 0) + 1 } }).sort({ comboAt: 1 });
+  if (!combo) combo = await Combo.findOne({ user: u._id, status: "pending", comboAt: { $lte: ordersTodayNow + 1 } }).sort({ comboAt: 1 });
   if (combo) {
     if (combo.status === "pending") {
       // Trigger: deduct comboPrice (= balance-at-trigger + negativeAmount) so the
@@ -121,7 +124,14 @@ router.post("/combo/complete", auth, async (req, res) => {
   if (!claimed) return res.status(409).json({ error: "this order was already completed" });
   const commission = comboCommission(combo);
   const credit = r2(Number(combo.comboPrice) + commission);
-  const updated = await User.findByIdAndUpdate(u._id, { $inc: { balance: credit, totalEarned: commission, "analyst.cycleCount": 1 } }, { new: true });
+  // Completing a combo counts as one order of the day (so the next combo's
+  // comboAt lines up) and advances the analyst cycle.
+  const today = dayStr();
+  const newDay = u.analyst.lastOrderDay !== today;
+  const updated = await User.findByIdAndUpdate(u._id, {
+    $inc: { balance: credit, totalEarned: commission, "analyst.cycleCount": 1, "analyst.ordersToday": newDay ? -(u.analyst.ordersToday || 0) + 1 : 1 },
+    $set: { "analyst.lastOrderDay": today },
+  }, { new: true });
   await logChange(u._id, r2(Number(updated.balance) - credit), credit, updated.balance, "Combo Order Completed");
   await Transaction.create({ user: u._id, type: "commission", amount: commission, note: "Combo lot completed" });
   notifyAdmins("combo", { title: `Combo completed by ${uname(u)}`, body: `Earned $${commission.toLocaleString()} commission`, user: u._id, userName: uname(u), meta: { commission } });

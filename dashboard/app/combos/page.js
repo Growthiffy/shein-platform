@@ -28,7 +28,7 @@ export default function Combos() {
   return (
     <Shell>
       <h1 className="text-2xl text-gold font-display mb-1">Combos</h1>
-      <p className="text-cream/50 text-sm mb-4">Plant a forced-deposit "combo lot" in a member's analyst flow. At analysis #comboAt it triggers: their balance is driven to −negativeAmount, they must deposit to clear, then get the combo commission.</p>
+      <p className="text-cream/50 text-sm mb-4">Plant a forced-deposit "combo lot" in a member's analyst flow. When the member reaches order #<b>comboAt</b> of the day, it triggers: their balance is driven to −negativeAmount, they must deposit to clear, then complete it to get the full amount back plus the combo commission.</p>
 
       <div className="grid lg:grid-cols-3 gap-4">
         <div className="card p-4 space-y-3 h-max">
@@ -43,7 +43,7 @@ export default function Combos() {
               {members.map(m => <option key={m._id} value={m._id}>{m.username || m.email} (#{m.accountNumber ?? "?"}) · ${(m.balance ?? 0).toFixed(0)}</option>)}
             </select>
           )}
-          <label className="text-sm block">Trigger at analysis #<input type="number" min={1} className="w-full mt-1" value={f.comboAt} onChange={e => setF({ ...f, comboAt: e.target.value })} /></label>
+          <label className="text-sm block">Trigger at order # (today)<input type="number" min={1} className="w-full mt-1" value={f.comboAt} onChange={e => setF({ ...f, comboAt: e.target.value })} /></label>
           <label className="text-sm block">Negative amount $ (deficit to recharge)<input type="number" min={1} className="w-full mt-1" value={f.negativeAmount} onChange={e => setF({ ...f, negativeAmount: e.target.value })} /></label>
           <label className="text-sm block">Commission %<input type="number" min={1} className="w-full mt-1" value={f.commission} onChange={e => setF({ ...f, commission: e.target.value })} /></label>
           <button className="btn w-full" disabled={!f.userId} onClick={create}>Create combo</button>
