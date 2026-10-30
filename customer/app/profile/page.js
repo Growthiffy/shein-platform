@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import AppShell, { useMe } from "@/components/AppShell";
 import { api } from "@/lib/api";
-import { ShieldCheck, Wallet, Copy, Crown, LineChart, TrendingUp, UserPlus, Shield, LifeBuoy, Check, Pencil } from "lucide-react";
+import { useRef } from "react";
+import { ShieldCheck, Wallet, Copy, Crown, LineChart, TrendingUp, UserPlus, Shield, LifeBuoy, Check, Pencil, Camera } from "lucide-react";
 
 const LEVELS = [
   { key: "beginner", name: "Beginner", salary: 230, required: 0,    normal: 1.2, latest: 23 },
@@ -25,11 +26,49 @@ const VERIFY_LABEL = { none: "Unverified", basic: "Basic verified", standard: "S
 
 export default function ProfilePage() { return <AppShell><Body /></AppShell>; }
 
+// Downscale/crop an image file to a square `size` and return a JPEG data URL.
+function resizeImage(file, size = 256) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement("canvas");
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      const s = Math.min(img.width, img.height);
+      const sx = (img.width - s) / 2, sy = (img.height - s) / 2;
+      ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
+      resolve(canvas.toDataURL("image/jpeg", 0.82));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Could not read image")); };
+    img.src = url;
+  });
+}
+
 function Body() {
   const { me, setMe, refresh } = useMe();
   const [copied, setCopied] = useState(false);
   const [phone, setPhone] = useState(me.phone || "");
   const [savingPhone, setSavingPhone] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef(null);
+
+  // Read an image file, downscale to 256px square on a canvas, store as a
+  // compressed data URL in user.avatar (no external file storage needed).
+  async function onAvatarFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { alert("Please choose an image file."); return; }
+    setUploading(true);
+    try {
+      const dataUrl = await resizeImage(file, 256);
+      const d = await api("/api/me/profile", { method: "POST", body: { avatar: dataUrl } });
+      setMe(d.user);
+    } catch (err) { alert(err.message || "Upload failed"); }
+    finally { setUploading(false); }
+  }
 
   async function setUsername() {
     const name = prompt("Choose a username (min 3 chars):", me.username || "");
@@ -56,9 +95,17 @@ function Body() {
         <div className="card p-6 lg:col-span-2 fadein">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="grid h-16 w-16 place-items-center rounded-full gold-grad text-white font-display text-2xl font-bold">
-                {(me.username || me.email)[0]?.toUpperCase()}
-              </div>
+              <button type="button" onClick={() => fileRef.current?.click()}
+                className="relative group grid h-16 w-16 place-items-center rounded-full gold-grad text-white font-display text-2xl font-bold overflow-hidden"
+                title="Change profile picture">
+                {me.avatar
+                  ? <img src={me.avatar} alt="" className="h-full w-full object-cover" />
+                  : (me.username || me.email)[0]?.toUpperCase()}
+                <span className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-black/45">
+                  {uploading ? <span className="text-[10px]">…</span> : <Camera size={18} />}
+                </span>
+              </button>
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onAvatarFile} />
               <div>
                 <button onClick={setUsername} className="flex items-center gap-2 font-display text-2xl text-gold hover:underline">
                   @{me.username || "set-username"} <Pencil size={14} className="text-cream/40" />

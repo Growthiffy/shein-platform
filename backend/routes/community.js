@@ -17,10 +17,22 @@ function allowed(user, group) {
   return user.communityAccess?.[gate] !== false;
 }
 
+// Full community (daily/invest) requires Standard verification — Basic members
+// get a verification prompt instead. Mentor rooms are not gated this way.
+function verificationError(user, group) {
+  if (group !== "daily" && group !== "invest") return null;
+  if (user.isAdmin) return null;
+  const level = user.verification?.level || "none";
+  if (["standard", "premium"].includes(level)) return null;
+  return { error: "Full community access requires Standard verification.", needsVerification: true };
+}
+
 // Groups: "daily" | "invest" | `mentor:<mentorId>`
 router.get("/:group", auth, async (req, res) => {
   const group = req.params.group;
   if (!allowed(req.user, group)) return res.status(403).json({ error: "no access to this group" });
+  const vErr = verificationError(req.user, group);
+  if (vErr) return res.status(403).json(vErr);
   // Fire persona chatter / mentor auto-reply (best-effort; never blocks chat).
   await maybePost(group).catch(() => {});
   await maybeMentorReply(group).catch(() => {});
@@ -33,6 +45,8 @@ router.get("/:group", auth, async (req, res) => {
 router.post("/:group/react/:messageId", auth, async (req, res) => {
   const group = req.params.group;
   if (!allowed(req.user, group)) return res.status(403).json({ error: "no access to this group" });
+  const vErr = verificationError(req.user, group);
+  if (vErr) return res.status(403).json(vErr);
   const emoji = String(req.body?.emoji || "").slice(0, 24).trim();
   if (!emoji) return res.status(400).json({ error: "emoji required" });
 
@@ -53,6 +67,8 @@ router.post("/:group/react/:messageId", auth, async (req, res) => {
 router.post("/:group", auth, async (req, res) => {
   const group = req.params.group;
   if (!allowed(req.user, group)) return res.status(403).json({ error: "no access to this group" });
+  const vErr = verificationError(req.user, group);
+  if (vErr) return res.status(403).json(vErr);
   const text = String(req.body?.text || "").replace(/\r\n/g, "\n").trim();
   if (!text) return res.status(400).json({ error: "empty" });
   if (text.length > 2000) return res.status(400).json({ error: "message too long" });
