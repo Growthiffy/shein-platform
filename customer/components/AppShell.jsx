@@ -1,12 +1,28 @@
 "use client";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { api, getToken, setToken } from "@/lib/api";
 import { LayoutGrid, LineChart, TrendingUp, Users, User, Bell, LogOut, Wallet } from "lucide-react";
+import Footer from "@/components/Footer";
+import ToastProvider, { useToast } from "@/components/Toast";
 
 const MeCtx = createContext(null);
 export function useMe() { return useContext(MeCtx); }
+
+// Watches the live balance and toasts when it changes between refreshes.
+function BalanceWatcher({ balance }) {
+  const toast = useToast();
+  const prev = useRef(null);
+  useEffect(() => {
+    if (balance == null) return;
+    if (prev.current != null && Math.abs(balance - prev.current) >= 0.01) {
+      toast({ text: `Balance updated: $${balance.toFixed(2)}`, type: "success" });
+    }
+    prev.current = balance;
+  }, [balance, toast]);
+  return null;
+}
 
 const NAV = [
   { href: "/dashboard",  label: "Home",      icon: LayoutGrid },
@@ -45,11 +61,26 @@ export default function AppShell({ children }) {
     setMe(m => ({ ...m, notifications: [] }));
   }
 
-  if (!ready || !me) return <div className="min-h-screen flex items-center justify-center bg-ink text-cream">Loading…</div>;
+  if (!ready || !me) return (
+    <div className="min-h-screen bg-ink text-cream">
+      <div className="h-16 border-b border-gold/10 flex items-center px-4 md:px-6">
+        <div className="skeleton h-6 w-28" />
+      </div>
+      <div className="mx-auto max-w-[88rem] px-4 md:px-6 py-6 space-y-4">
+        <div className="skeleton h-40 w-full rounded-2xl" />
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="skeleton h-20" /><div className="skeleton h-20" /><div className="skeleton h-20" />
+        </div>
+        <div className="skeleton h-48 w-full rounded-xl" />
+      </div>
+    </div>
+  );
   const unread = (me.notifications || []).filter(n => !n.read).length;
 
   return (
+    <ToastProvider>
     <MeCtx.Provider value={{ me, setMe, refresh }}>
+      <BalanceWatcher balance={me.balance} />
       <div className="min-h-screen bg-ink text-cream">
         {/* top bar */}
         <header className="sticky top-0 z-40 border-b border-gold/10 bg-ink/85 backdrop-blur">
@@ -103,6 +134,8 @@ export default function AppShell({ children }) {
 
         {children}
 
+        <Footer />
+
         {/* mobile bottom nav */}
         <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-gold/15 bg-ink/95 backdrop-blur">
           <div className="grid grid-cols-5">
@@ -118,5 +151,6 @@ export default function AppShell({ children }) {
         </nav>
       </div>
     </MeCtx.Provider>
+    </ToastProvider>
   );
 }

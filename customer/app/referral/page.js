@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import AppShell, { useMe } from "@/components/AppShell";
 import { api } from "@/lib/api";
-import { UserPlus, Copy, Check, Gift } from "lucide-react";
+import { UserPlus, Copy, Check, Gift, MessageCircle, Send, Award } from "lucide-react";
 
 export default function ReferralPage() { return <AppShell><Body /></AppShell>; }
 
@@ -13,7 +13,9 @@ function Body() {
 
   useEffect(() => { api("/api/me/referral").then(setData).catch(() => {}); }, []);
 
-  const link = typeof window !== "undefined" && data?.code ? `${window.location.origin}/auth?ref=${data.code}` : "";
+  const code = data?.code || me.referralCode || "";
+  const link = typeof window !== "undefined" && code ? `${window.location.origin}/auth?ref=${code}` : "";
+  const shareMsg = `Join Shein and earn with me! Use my code ${code} for a $20 signup bonus. ${link}`;
   function copy(txt, which) { navigator.clipboard?.writeText(txt); setCopied(which); setTimeout(() => setCopied(""), 1500); }
 
   return (
@@ -45,11 +47,58 @@ function Body() {
               </button>
             </div>
           </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            <a href={`https://wa.me/?text=${encodeURIComponent(shareMsg)}`} target="_blank" rel="noreferrer" className="btn-outline py-2 px-4 text-sm"><MessageCircle size={15} /> WhatsApp</a>
+            <a href={`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(shareMsg)}`} target="_blank" rel="noreferrer" className="btn-outline py-2 px-4 text-sm"><Send size={15} /> Telegram</a>
+            <button onClick={() => copy(shareMsg, "msg")} className="btn-outline py-2 px-4 text-sm">{copied === "msg" ? <><Check size={15} /> Copied</> : <><Copy size={15} /> Copy message</>}</button>
+          </div>
         </div>
 
         <div className="grid gap-4">
           <div className="stat fadein-2"><div className="label">Invited</div><div className="text-3xl font-semibold mt-1">{data?.count ?? 0}</div></div>
           <div className="stat fadein-2"><div className="label">Verified</div><div className="text-3xl font-semibold text-gold mt-1">{data?.verifiedCount ?? 0}</div></div>
+          <div className="stat fadein-2"><div className="label">Earned from referrals</div><div className="text-3xl font-semibold text-gold mt-1">${(data?.earned ?? 0).toFixed(2)}</div></div>
+        </div>
+      </div>
+
+      {/* how it works */}
+      <div className="card p-6 fadein-2">
+        <h3 className="font-display text-xl text-gold mb-4">How it works</h3>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {[
+            ["Share your code", "Send your unique code or link to friends."],
+            ["Friend signs up", "They register and verify their email."],
+            ["You both earn", `You each get a $${data?.bonus ?? 10} bonus.`],
+          ].map(([t, d], i) => (
+            <div key={i} className="rounded-xl border border-line p-4">
+              <div className="grid h-8 w-8 place-items-center rounded-full gold-grad text-white font-bold">{i + 1}</div>
+              <div className="font-semibold text-cream mt-2">{t}</div>
+              <div className="text-sm text-cream/60 mt-1">{d}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* tier rewards */}
+      <div className="card p-6 fadein-3">
+        <div className="mb-4 flex items-center gap-2"><Award size={18} className="text-gold" /><h3 className="font-display text-xl text-gold">Referrer Tiers</h3></div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {[
+            { n: 5, name: "Silver Referrer" },
+            { n: 20, name: "Gold Referrer" },
+          ].map(t => {
+            const reached = (data?.count ?? 0) >= t.n;
+            return (
+              <div key={t.n} className={`flex items-center justify-between rounded-xl border p-4 ${reached ? "border-gold2/50 bg-gold2/5" : "border-line"}`}>
+                <div>
+                  <div className="font-semibold text-cream">{t.name}</div>
+                  <div className="text-sm text-cream/55">Invite {t.n} friends</div>
+                </div>
+                <span className={`chip ${reached ? "text-gold2 border-gold2/40" : ""}`}>{reached ? "Unlocked" : `${data?.count ?? 0}/${t.n}`}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 

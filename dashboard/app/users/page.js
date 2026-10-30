@@ -31,6 +31,10 @@ export default function Users() {
     await api(`/api/admin/users/${sel._id}/adjust-balance`, { method: "POST", body: { amount: n, note: "admin adjust" } });
     await load();
   }
+  async function setVerify(level) {
+    await api(`/api/admin/users/${sel._id}/verify`, { method: "POST", body: { level } });
+    await load();
+  }
   async function notify() {
     const text = prompt("Notification message to send to this user:");
     if (!text?.trim()) return;
@@ -84,6 +88,13 @@ export default function Users() {
               <SelectField label="Mentor" value={sel.mentor || ""}
                 options={[{ v: "", t: "— none —" }, ...mentors.map(m => ({ v: m._id, t: m.name }))]}
                 onSave={v => save({ mentor: v || null })} />
+
+              <SelectField label="Verification" value={sel.verification?.level || "none"}
+                options={[{ v: "none", t: "None" }, { v: "basic", t: "Basic" }, { v: "standard", t: "Standard" }, { v: "pending_premium", t: "Premium (pending)" }, { v: "premium", t: "Premium" }]}
+                onSave={setVerify} />
+              {sel.verification?.level === "pending_premium" && (
+                <div className="text-xs text-amber-600">ID submitted ({sel.verification?.idType || "id"}) — approve to Premium.</div>
+              )}
 
               <div className="pt-2">
                 <div className="text-xs text-cream/60">Community access</div>

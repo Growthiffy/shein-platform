@@ -2,9 +2,13 @@
 import { useEffect, useRef, useState } from "react";
 import AppShell, { useMe } from "@/components/AppShell";
 import { api } from "@/lib/api";
-import { Send, Trash2, Reply, X, AtSign } from "lucide-react";
+import { Send, Trash2, Reply, X, SmilePlus } from "lucide-react";
 
 const GROUPS = [{ id: "daily", label: "Daily Analysts" }, { id: "invest", label: "Investors" }];
+
+const EMOJI = { fire: "🔥", thumbsup: "👍", heart: "❤️", clap: "👏", rocket: "🚀", eyes: "👀", "100": "💯" };
+const QUICK = ["fire", "thumbsup", "heart", "clap", "rocket"];
+function jitter(n) { return Math.max(0, Math.round(n + (Math.random() * 20 - 10))); }
 
 export default function CommunityPage() { return <AppShell><Body /></AppShell>; }
 
@@ -17,12 +21,15 @@ function Body() {
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState(null);
   const [blocked, setBlocked] = useState(false);
+  const [typing, setTyping] = useState([]);
+  const [online, setOnline] = useState({});
+  const [picker, setPicker] = useState(null); // messageId with open reaction picker
   const box = useRef(null);
   const inputRef = useRef(null);
 
   async function load(g, scroll = true) {
     try {
-      const d = await api(`/api/community/${g}`); setItems(d.items); setBlocked(false);
+      const d = await api(`/api/community/${g}`); setItems(d.items); setTyping(d.typing || []); setBlocked(false);
       if (scroll) setTimeout(() => box.current?.scrollTo(0, box.current.scrollHeight), 50);
     } catch (e) { if (String(e.message).includes("access")) { setBlocked(true); setItems([]); } }
   }
@@ -31,6 +38,21 @@ function Body() {
     const t = setInterval(() => load(group, false), 6000);
     return () => clearInterval(t);
   }, [group]);
+
+  // Per-group online counts derived from the public online total (60% daily / 40% invest).
+  useEffect(() => {
+    api("/api/stats/public").then(d => {
+      const n = d.onlineMembers || 0;
+      setOnline({ daily: jitter(n * 0.6), invest: jitter(n * 0.4) });
+    }).catch(() => {});
+  }, []);
+
+  async function react(messageId, emoji) {
+    setPicker(null);
+    setItems(list => list.map(m => m._id === messageId ? { ...m, reactions: toggleLocal(m.reactions, emoji, me.id) } : m));
+    try { await api(`/api/community/${group}/react/${messageId}`, { method: "POST", body: { emoji } }); }
+    catch { load(group, false); }
+  }
 
   async function send() {
     const t = text.replace(/\r\n/g, "\n");
@@ -55,6 +77,7 @@ function Body() {
             <button key={g.id} onClick={() => setGroup(g.id)}
               className={`px-4 py-1.5 rounded-full text-sm transition ${g.id === group ? "bg-gold2 text-white font-semibold" : "border border-line text-cream/70 hover:text-cream"}`}>
               {g.label}
+              {online[g.id] != null && <span className={`ml-2 text-xs ${g.id === group ? "text-white/80" : "text-emerald-500"}`}>● {online[g.id]}</span>}
             </button>
           ))}
         </div>
@@ -75,6 +98,14 @@ function Body() {
                   {staff && <span className="text-gold2">• staff</span>}
                   <span className="text-cream/30">{new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                   <span className="ml-auto flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
+                    <div className="relative">
+                      <button onClick={() => setPicker(picker === m._id ? null : m._id)} className="text-cream/40 hover:text-gold2" title="React"><SmilePlus size={13} /></button>
+                      {picker === m._id && (
+                        <div className="absolute right-0 top-5 z-10 flex gap-1 rounded-full border border-line bg-ink px-2 py-1 shadow-lg">
+                          {QUICK.map(e => <button key={e} onClick={() => react(m._id, e)} className="text-base hover:scale-125 transition">{EMOJI[e]}</button>)}
+                        </div>
+                      )}
+                    </div>
                     <button onClick={() => startReply(m)} className="text-cream/40 hover:text-gold2" title="Reply"><Reply size={13} /></button>
                     {mine && <button onClick={() => del(m._id)} className="text-cream/40 hover:text-gold2" title="Delete"><Trash2 size={12} /></button>}
                   </span>
@@ -86,12 +117,35 @@ function Body() {
                   </button>
                 )}
                 <MsgText text={m.text} />
+                {!!(m.reactions && m.reactions.length) && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {m.reactions.map(r => {
+                      const mineR = (r.users || []).some(u => String(u) === String(me.id));
+                      return (
+                        <button key={r.emoji} onClick={() => react(m._id, r.emoji)}
+                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition ${mineR ? "border-gold2 bg-gold2/10" : "border-line hover:border-gold2/40"}`}>
+                          <span>{EMOJI[r.emoji] || "⭐"}</span><span className="text-cream/60">{r.count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           );
         })}
         {blocked && <div className="text-cream/50 text-sm">You do not have access to this group.</div>}
         {!blocked && !items.length && <div className="text-cream/50 text-sm">No messages yet.</div>}
+        {!blocked && typing.length > 0 && (
+          <div className="flex items-center gap-2 text-xs text-cream/50 pt-1">
+            <span className="flex gap-0.5">
+              <i className="h-1.5 w-1.5 rounded-full bg-cream/40" style={{ animation: "dots 1.2s infinite" }} />
+              <i className="h-1.5 w-1.5 rounded-full bg-cream/40" style={{ animation: "dots 1.2s infinite .2s" }} />
+              <i className="h-1.5 w-1.5 rounded-full bg-cream/40" style={{ animation: "dots 1.2s infinite .4s" }} />
+            </span>
+            {typing.join(", ")} {typing.length > 1 ? "are" : "is"} typing…
+          </div>
+        )}
       </div>
 
       {replyTo && (
@@ -113,6 +167,17 @@ function Body() {
       </div>
     </div>
   );
+}
+
+// Optimistically toggle my reaction locally before the server confirms.
+function toggleLocal(reactions = [], emoji, meId) {
+  const list = reactions.map(r => ({ ...r, users: [...(r.users || [])] }));
+  let r = list.find(x => x.emoji === emoji);
+  if (!r) { list.push({ emoji, count: 1, users: [meId] }); return list; }
+  const i = r.users.findIndex(u => String(u) === String(meId));
+  if (i >= 0) { r.users.splice(i, 1); r.count = Math.max(0, r.count - 1); }
+  else { r.users.push(meId); r.count += 1; }
+  return list.filter(x => x.count > 0);
 }
 
 // Render text with @mentions highlighted and bare URLs linked.

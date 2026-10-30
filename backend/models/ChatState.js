@@ -11,6 +11,8 @@ const Schema = new mongoose.Schema({
   scriptStep: { type: Number, default: 0 },
   mood:       { type: String, default: "normal" },
   speakers:   [{ name: String, avatar: String }],
+  // Two-phase "typing then post": messages queued while a typing indicator shows.
+  pending:    { type: mongoose.Schema.Types.Mixed, default: null },
   lastMsg:    {
     id:         { type: mongoose.Schema.Types.ObjectId },
     authorName: { type: String },

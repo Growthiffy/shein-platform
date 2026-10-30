@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { api, setToken } from "@/lib/api";
+import Footer from "@/components/Footer";
 
 export default function AuthPage() {
   const [mode, setMode] = useState("choose"); // choose | signin | signup | verify
@@ -11,15 +12,18 @@ export default function AuthPage() {
     try { const r = new URLSearchParams(window.location.search).get("ref"); if (r) { setRef(r.toUpperCase()); setMode("signup"); } } catch {}
   }, []);
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-ink px-4 py-10" style={{backgroundImage:"radial-gradient(ellipse at top, rgba(201,162,74,.1), transparent 60%)"}}>
-      <div className="font-display text-4xl tracking-[0.3em] text-gold mb-1">SHEIN</div>
-      <div className="text-[11px] tracking-[0.35em] text-cream/50 mb-8">LUXURY · ANALYSIS · GROWTH</div>
-      <div className="card w-full max-w-md p-8">
-        {mode === "choose" && <Choose onPick={setMode} />}
-        {mode === "signin" && <SignIn onSwitch={() => setMode("signup")} onNeedsVerify={() => setMode("verify")} />}
-        {mode === "signup" && <SignUp ref0={ref} onNeedsVerify={(c) => { setDevCode(c || ""); setMode("verify"); }} onSwitch={() => setMode("signin")} />}
-        {mode === "verify" && <Verify devCode={devCode} />}
+    <main className="min-h-screen flex flex-col bg-ink" style={{backgroundImage:"radial-gradient(ellipse at top, rgba(201,162,74,.1), transparent 60%)"}}>
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-10">
+        <div className="font-display text-4xl tracking-[0.3em] text-gold mb-1">SHEIN</div>
+        <div className="text-[11px] tracking-[0.35em] text-cream/50 mb-8">LUXURY · ANALYSIS · GROWTH</div>
+        <div className="card w-full max-w-md p-8">
+          {mode === "choose" && <Choose onPick={setMode} />}
+          {mode === "signin" && <SignIn onSwitch={() => setMode("signup")} onNeedsVerify={() => setMode("verify")} />}
+          {mode === "signup" && <SignUp ref0={ref} onNeedsVerify={(c) => { setDevCode(c || ""); setMode("verify"); }} onSwitch={() => setMode("signin")} />}
+          {mode === "verify" && <Verify devCode={devCode} />}
+        </div>
       </div>
+      <Footer />
     </main>
   );
 }

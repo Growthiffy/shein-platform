@@ -1,7 +1,8 @@
 const router = require("express").Router();
 const { auth } = require("../middleware/auth");
 const ChatMessage = require("../models/ChatMessage");
-const { maybePost } = require("../utils/personaTick");
+const { maybePost, currentTyping } = require("../utils/personaTick");
+const { maybeMentorReply } = require("../utils/mentorTick");
 
 // Resolve the access gate a group maps to. daily/invest map to their own flag;
 // any mentor:<id> room maps to mentorRooms. Unknown groups are allowed.
@@ -20,10 +21,33 @@ function allowed(user, group) {
 router.get("/:group", auth, async (req, res) => {
   const group = req.params.group;
   if (!allowed(req.user, group)) return res.status(403).json({ error: "no access to this group" });
-  // Fire persona chatter (best-effort; never blocks chat).
+  // Fire persona chatter / mentor auto-reply (best-effort; never blocks chat).
   await maybePost(group).catch(() => {});
+  await maybeMentorReply(group).catch(() => {});
   const items = await ChatMessage.find({ group }).sort({ createdAt: -1 }).limit(200);
-  res.json({ items: items.reverse() });
+  const typing = await currentTyping(group).catch(() => []);
+  res.json({ items: items.reverse(), typing });
+});
+
+// Toggle an emoji reaction on a message in this group.
+router.post("/:group/react/:messageId", auth, async (req, res) => {
+  const group = req.params.group;
+  if (!allowed(req.user, group)) return res.status(403).json({ error: "no access to this group" });
+  const emoji = String(req.body?.emoji || "").slice(0, 24).trim();
+  if (!emoji) return res.status(400).json({ error: "emoji required" });
+
+  const msg = await ChatMessage.findOne({ _id: req.params.messageId, group });
+  if (!msg) return res.status(404).json({ error: "not found" });
+
+  const uid = String(req.user._id);
+  let r = (msg.reactions || []).find(x => x.emoji === emoji);
+  if (!r) { r = { emoji, count: 0, users: [] }; msg.reactions.push(r); r = msg.reactions[msg.reactions.length - 1]; }
+  const idx = r.users.findIndex(u => String(u) === uid);
+  if (idx >= 0) { r.users.splice(idx, 1); r.count = Math.max(0, r.count - 1); }
+  else { r.users.push(req.user._id); r.count += 1; }
+  msg.reactions = msg.reactions.filter(x => x.count > 0);
+  await msg.save();
+  res.json({ reactions: msg.reactions.map(x => ({ emoji: x.emoji, count: x.count })) });
 });
 
 router.post("/:group", auth, async (req, res) => {

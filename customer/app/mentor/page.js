@@ -28,6 +28,12 @@ function Body() {
     setTimeout(() => box.current?.scrollTo(0, box.current.scrollHeight), 50);
   }
   useEffect(() => { load(); }, []);
+  // Poll the mentor chat so auto-replies appear without a manual refresh.
+  useEffect(() => {
+    if (!picked) return;
+    const t = setInterval(() => loadChat(picked._id), 12000);
+    return () => clearInterval(t);
+  }, [picked?._id]);
 
   async function choose(id) {
     try { const d = await api("/api/mentor/select", { method: "POST", body: { id } }); setPicked(d.mentor); loadChat(d.mentor._id); await refresh(); }
@@ -53,8 +59,11 @@ function Body() {
         <div className="grid md:grid-cols-2 gap-4 mt-6">
           {list.map(m => (
             <div key={m._id} className="card card-hover p-6">
-              <h3 className="font-display text-2xl text-gold">{m.name}</h3>
-              <div className="text-cream/60 text-sm">{m.title}</div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-display text-2xl text-gold">{m.name}</h3>
+                <StatusDot status={m.status} />
+              </div>
+              <div className="text-cream/60 text-sm">{m.title} · <MentorPresence m={m} /></div>
               <p className="mt-2 text-cream/80 text-sm">{m.bio}</p>
               <button className="btn-gold mt-4" onClick={() => choose(m._id)}>CHOOSE</button>
             </div>
@@ -66,8 +75,11 @@ function Body() {
       {picked && (
         <div className="grid md:grid-cols-3 gap-6 mt-6">
           <div className="card p-6 md:col-span-1">
-            <h3 className="font-display text-2xl text-gold">{picked.name}</h3>
-            <div className="text-cream/60 text-sm">{picked.title}</div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-display text-2xl text-gold">{picked.name}</h3>
+              <StatusDot status={picked.status} />
+            </div>
+            <div className="text-cream/60 text-sm">{picked.title} · <MentorPresence m={picked} /></div>
             <p className="mt-2 text-cream/80 text-sm">{picked.bio}</p>
             <div className="mt-3 text-xs text-cream/50">To change mentor, contact support.</div>
           </div>
@@ -107,6 +119,23 @@ function Body() {
       )}
     </div>
   );
+}
+
+function StatusDot({ status }) {
+  const c = status === "online" ? "bg-emerald-500" : status === "away" ? "bg-amber-500" : "bg-cream/30";
+  return <span className={`inline-block h-2.5 w-2.5 rounded-full ${c}`} title={status || "offline"} />;
+}
+function MentorPresence({ m }) {
+  if (m.status === "online") return <span className="text-emerald-500">online</span>;
+  if (m.status === "away") return <span className="text-amber-600">away</span>;
+  const ago = m.lastSeenAt ? timeSince(m.lastSeenAt) : "a while ago";
+  return <span className="text-cream/45">last seen {ago}</span>;
+}
+function timeSince(d) {
+  const m = Math.max(1, Math.floor((Date.now() - new Date(d).getTime()) / 60000));
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60); if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
 }
 
 function Formatted({ text, light }) {

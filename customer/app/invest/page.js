@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import AppShell, { useMe } from "@/components/AppShell";
 import { api } from "@/lib/api";
+import { useToast } from "@/components/Toast";
+import { EmptyState } from "@/components/ui";
 import { TrendingUp } from "lucide-react";
 
 export default function InvestPage() { return <AppShell><Body /></AppShell>; }
@@ -15,6 +17,7 @@ function Body() {
   const [tier, setTier] = useState(1);
   const [lockWeeks, setLockWeeks] = useState(4);
   const [err, setErr] = useState("");
+  const toast = useToast();
 
   async function loadAll() {
     const [s, h] = await Promise.all([
@@ -31,8 +34,11 @@ function Body() {
 
   async function start() {
     setErr("");
-    try { await api("/api/invest/start", { method: "POST", body: { amount: Number(amount), tierLevel: tier } }); await Promise.all([refresh(), loadAll()]); setAmount(""); }
-    catch (e) { setErr(e.message); }
+    try {
+      await api("/api/invest/start", { method: "POST", body: { amount: Number(amount), tierLevel: tier } });
+      await Promise.all([refresh(), loadAll()]); setAmount("");
+      toast({ text: `Investment locked — ${selTier?.name || "tier"}`, type: "success" });
+    } catch (e) { setErr(e.message); }
   }
   async function release() {
     setErr("");
@@ -129,7 +135,7 @@ function Body() {
                 <div className={`font-semibold ${h.type === "invest_payout" ? "text-gold2" : "text-cream"}`}>{h.type === "invest_lock" ? "-" : "+"}${h.amount}</div>
               </div>
             ))}
-            {!history.length && <div className="text-cream/50 text-sm py-4">No investment activity yet.</div>}
+            {!history.length && <EmptyState title="No investment activity yet" hint="Lock funds in a tier to start earning weekly returns." />}
           </div>
         </div>
       </div>

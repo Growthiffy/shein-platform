@@ -11,7 +11,9 @@ const Setting = require("../models/Setting");
 const Persona = require("../models/Persona");
 const LoginHistory = require("../models/LoginHistory");
 const SupportMessage = require("../models/SupportMessage");
+const Announcement = require("../models/Announcement");
 const { DEFAULTS } = require("../utils/settings");
+const { sendDepositApproved, sendWithdrawalStatus } = require("../utils/mailer");
 
 router.use(auth, admin);
 
@@ -200,6 +202,22 @@ router.post("/users/:id/reset-cycle", async (req, res) => {
   res.json({ user: u });
 });
 
+// Override a member's verification level (e.g. approve pending_premium → premium).
+const VERIFY_LEVELS = ["none", "basic", "standard", "pending_premium", "premium"];
+router.post("/users/:id/verify", async (req, res) => {
+  const { level, note } = req.body || {};
+  if (!VERIFY_LEVELS.includes(level)) return res.status(400).json({ error: "bad level" });
+  const u = await User.findById(req.params.id);
+  if (!u) return res.status(404).json({ error: "no user" });
+  if (!u.verification) u.verification = {};
+  u.verification.level = level;
+  u.verification.reviewedAt = new Date();
+  if (note) u.verification.reviewNote = note;
+  u.notifications.push({ text: `Your verification level is now ${level.replace(/_/g, " ")}.`, type: level === "premium" ? "success" : "info" });
+  await u.save();
+  res.json({ user: u });
+});
+
 router.post("/users/:id/adjust-balance", async (req, res) => {
   const { amount, note } = req.body || {};
   const u = await User.findById(req.params.id);
@@ -250,10 +268,13 @@ router.post("/tx/:id/approve", async (req, res) => {
   if (!tx) return res.status(404).json({ error: "no tx" });
   if (tx.status !== "pending") return res.status(400).json({ error: "already resolved" });
   tx.status = "approved";
+  tx.processingStage = "completed";
+  tx.stageHistory.push({ stage: "completed", at: new Date(), note: "Approved by staff" });
   if (tx.type === "deposit") {
     const u = await User.findById(tx.user);
     u.balance = +(u.balance + tx.amount).toFixed(2);
     await u.save();
+    sendDepositApproved(u, tx.amount).catch(() => {});
   }
   await tx.save();
   res.json({ tx });
@@ -263,12 +284,54 @@ router.post("/tx/:id/reject", async (req, res) => {
   if (!tx) return res.status(404).json({ error: "no tx" });
   if (tx.status !== "pending") return res.status(400).json({ error: "already resolved" });
   tx.status = "rejected";
+  tx.processingStage = "rejected";
+  tx.stageHistory.push({ stage: "rejected", at: new Date(), note: "Rejected by staff" });
   if (tx.type === "withdrawal") {
     const u = await User.findById(tx.user);
     u.balance = +(u.balance + tx.amount).toFixed(2);
     await u.save();
   }
   await tx.save();
+  res.json({ tx });
+});
+
+// Richer stage transitions for deposits/withdrawals. Terminal stages keyed off
+// the current status so balance is never credited/refunded twice.
+const TX_STAGES = ["submitted", "under_review", "processing", "completed", "requires_verification", "rejected"];
+router.post("/tx/:id/stage", async (req, res) => {
+  const { stage, note } = req.body || {};
+  if (!TX_STAGES.includes(stage)) return res.status(400).json({ error: "bad stage" });
+  const tx = await Transaction.findById(req.params.id);
+  if (!tx) return res.status(404).json({ error: "no tx" });
+
+  tx.processingStage = stage;
+  tx.stageHistory.push({ stage, at: new Date(), note: note || undefined });
+
+  if (stage === "completed" && tx.status === "pending") {
+    if (tx.type === "deposit") {
+      const u = await User.findById(tx.user);
+      if (u) { u.balance = +(u.balance + tx.amount).toFixed(2); await u.save(); }
+      tx.status = "approved";
+    } else {
+      tx.status = "complete";
+    }
+  }
+  if (stage === "rejected" && tx.status === "pending") {
+    tx.status = "rejected";
+    if (tx.type === "withdrawal") {
+      const u = await User.findById(tx.user);
+      if (u) { u.balance = +(u.balance + tx.amount).toFixed(2); await u.save(); }
+    }
+  }
+  await tx.save();
+
+  const u = await User.findById(tx.user);
+  if (u) {
+    u.notifications.push({ text: `Your ${tx.type} of $${tx.amount} is now ${stage.replace(/_/g, " ")}.`, type: stage === "rejected" ? "warning" : "info" });
+    await u.save();
+    if (tx.type === "withdrawal") sendWithdrawalStatus(u, tx.amount, stage).catch(() => {});
+    else if (tx.type === "deposit" && stage === "completed") sendDepositApproved(u, tx.amount).catch(() => {});
+  }
   res.json({ tx });
 });
 
@@ -286,6 +349,21 @@ router.put("/settings/:key", async (req, res) => {
   );
   res.json({ setting: row });
 });
+
+// Announcements
+router.get("/announcements", async (req, res) => res.json({ items: await Announcement.find().sort({ pinned: -1, publishedAt: -1 }) }));
+router.post("/announcements", async (req, res) => {
+  const { title, body, type, pinned, active, publishedAt } = req.body || {};
+  if (!title?.trim()) return res.status(400).json({ error: "title required" });
+  const item = await Announcement.create({
+    title: title.trim(), body: body || "", type: type || "news",
+    pinned: !!pinned, active: active !== false,
+    publishedAt: publishedAt ? new Date(publishedAt) : new Date(),
+  });
+  res.json({ item });
+});
+router.patch("/announcements/:id", async (req, res) => res.json({ item: await Announcement.findByIdAndUpdate(req.params.id, req.body, { new: true }) }));
+router.delete("/announcements/:id", async (req, res) => { await Announcement.findByIdAndDelete(req.params.id); res.json({ ok: true }); });
 
 // Personas (AI community members)
 router.get("/personas", async (req, res) => res.json({ items: await Persona.find().sort({ createdAt: -1 }) }));

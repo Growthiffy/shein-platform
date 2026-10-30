@@ -17,9 +17,11 @@ const QUICK = [
   { label: "Invest",   href: "/invest",          icon: TrendingUp },
   { label: "Invite",   href: "/referral",        icon: UserPlus },
   { label: "Mentor",   href: "/mentor",          icon: Crown },
+  { label: "Verify",   href: "/verification",    icon: ShieldCheck },
   { label: "Security", href: "/security",        icon: Shield },
   { label: "Support",  href: "/support",         icon: LifeBuoy },
 ];
+const VERIFY_LABEL = { none: "Unverified", basic: "Basic verified", standard: "Standard verified", pending_premium: "Premium pending", premium: "Premium verified" };
 
 export default function ProfilePage() { return <AppShell><Body /></AppShell>; }
 
@@ -64,6 +66,7 @@ function Body() {
                 <div className="text-sm text-cream/50">{me.email}</div>
                 <div className="mt-1 flex items-center gap-2">
                   <span className="chip"><Crown size={12} /> {me.level}</span>
+                  <Link href="/verification" className="chip hover:border-gold2/50"><ShieldCheck size={12} /> {VERIFY_LABEL[me.verification?.level || "none"]}</Link>
                   {me.accountNumber && <span className="text-xs text-cream/40">Member #{me.accountNumber}</span>}
                 </div>
               </div>

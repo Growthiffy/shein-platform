@@ -1,10 +1,15 @@
 const router = require("express").Router();
 const { auth } = require("../middleware/auth");
 const Mentor = require("../models/Mentor");
+const { statusFor } = require("../utils/mentorStatus");
 
 router.get("/", async (req, res) => {
   const items = await Mentor.find({ active: true });
-  res.json({ items });
+  const withStatus = await Promise.all(items.map(async m => {
+    const s = await statusFor(m._id);
+    return { ...m.toObject(), status: s.status, lastSeenAt: s.lastSeenAt };
+  }));
+  res.json({ items: withStatus });
 });
 
 router.post("/select", auth, async (req, res) => {

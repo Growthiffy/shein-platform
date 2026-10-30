@@ -5,14 +5,14 @@ const User = require("../models/User");
 const Counter = require("../models/Counter");
 const LoginHistory = require("../models/LoginHistory");
 const Transaction = require("../models/Transaction");
-const { sendVerificationCode, mailConfigured } = require("../utils/mailer");
+const { sendVerificationCode, sendLoginAlert, sendWelcome, mailConfigured } = require("../utils/mailer");
 const { SIGNUP_REWARD, REFERRAL_BONUS } = require("../config/levels");
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const isProd = process.env.NODE_ENV === "production" || !!process.env.VERCEL;
 
 function makeCode() { return String(Math.floor(100000 + Math.random() * 900000)); }
-function sign(u) { return jwt.sign({ id: u._id.toString() }, process.env.JWT_SECRET, { expiresIn: "30d" }); }
+function sign(u) { return jwt.sign({ id: u._id.toString(), tv: u.tokenVersion || 0 }, process.env.JWT_SECRET, { expiresIn: "30d" }); }
 
 // Unique short invite code.
 async function makeReferralCode() {
@@ -25,7 +25,10 @@ async function makeReferralCode() {
 
 function recordLogin(user, req) {
   const ip = (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.ip;
-  LoginHistory.create({ user: user._id, ip, userAgent: req.headers["user-agent"] }).catch(() => {});
+  const userAgent = req.headers["user-agent"];
+  LoginHistory.create({ user: user._id, ip, userAgent }).catch(() => {});
+  // Best-effort login alert email (no-op in dev with no mail provider).
+  if (user.loginAlerts !== false) sendLoginAlert(user, { ip, userAgent }).catch(() => {});
 }
 
 // Deliver a verification code. Returns {sent, devCode}. Throws only if a mail
@@ -87,6 +90,9 @@ router.post("/verify", async (req, res) => {
   user.emailVerified = true;
   user.verifyCode = undefined;
   user.verifyExpires = undefined;
+  // Email verified → Basic verification level.
+  if (!user.verification) user.verification = {};
+  if (!user.verification.level || user.verification.level === "none") user.verification.level = "basic";
   // Signup reward lands in balance only on verify.
   if (!user.balance && user.rewardCredit) {
     user.balance = user.rewardCredit;
@@ -110,6 +116,7 @@ router.post("/verify", async (req, res) => {
   }
 
   recordLogin(user, req);
+  sendWelcome(user).catch(() => {}); // best-effort welcome email
   res.json({ token: sign(user), user: publicUser(user) });
 });
 
@@ -159,7 +166,16 @@ function publicUser(u) {
     rewardCredit: u.rewardCredit || 0,
     accountNumber: u.accountNumber, phone: u.phone, avatar: u.avatar,
     creditScore: u.creditScore ?? 100, referralCode: u.referralCode,
-    createdAt: u.createdAt,
+    createdAt: u.createdAt, lastSalaryAt: u.lastSalaryAt,
+    verification: {
+      level: u.verification?.level || "none",
+      fullName: u.verification?.fullName, phone: u.verification?.phone,
+      country: u.verification?.country, idType: u.verification?.idType,
+      submittedAt: u.verification?.submittedAt, reviewedAt: u.verification?.reviewedAt,
+    },
+    antiPhishSet: !!u.antiPhishCode,
+    twoFactorEnabled: !!u.twoFactorEnabled,
+    loginAlerts: u.loginAlerts !== false,
     notifications: (u.notifications || []).slice(-30).reverse(),
     communityAccess: {
       daily:       u.communityAccess?.daily !== false,

@@ -68,6 +68,26 @@ body { font-family: Inter, system-ui, sans-serif; -webkit-font-smoothing: antial
 .fadein-2 { animation: fadein .55s .1s ease-out both; }
 .fadein-3 { animation: fadein .55s .2s ease-out both; }
 
+/* ---- confetti (cycle complete) ---- */
+@keyframes confetti-fall {
+  0%   { transform: translateY(-10vh) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: .9; }
+}
+.confetti-piece { position: fixed; top: 0; width: 9px; height: 14px; border-radius: 2px; will-change: transform; animation: confetti-fall linear forwards; z-index: 90; }
+
+/* ---- modal ---- */
+@keyframes pop-in { from { opacity: 0; transform: scale(.9) translateY(8px); } to { opacity: 1; transform: none; } }
+.pop-in { animation: pop-in .25s ease-out both; }
+@keyframes dots { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+
+/* ---- skeleton ---- */
+@keyframes shimmer { 0% { opacity: .55; } 50% { opacity: 1; } 100% { opacity: .55; } }
+.skeleton { background: #ececec; border-radius: .5rem; animation: shimmer 1.3s ease-in-out infinite; }
+
+/* ---- toast ---- */
+@keyframes toast-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+.toast-in { animation: toast-in .25s ease-out both; }
+
 /* ---- layout: thin side gutters, near-full width ---- */
 .page { max-width: 90rem; margin: 0 auto; padding: 1.25rem 0.9rem 6rem; }
 @media (min-width:768px){ .page { padding: 1.75rem 1.5rem 2.5rem; } }

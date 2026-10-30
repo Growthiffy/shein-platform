@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { api, setToken, getToken } from "@/lib/api";
 import { useEffect } from "react";
-import { LayoutDashboard, Users, Package, ArrowLeftRight, Wallet, GraduationCap, MessagesSquare, Bot, Settings, History, LifeBuoy, UserPlus, LogOut, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Users, Package, ArrowLeftRight, Wallet, GraduationCap, MessagesSquare, Bot, Settings, History, LifeBuoy, UserPlus, LogOut, ShieldCheck, Megaphone } from "lucide-react";
 
 const NAV = [
   { href: "/overview", label: "Overview", icon: LayoutDashboard },
@@ -13,6 +13,7 @@ const NAV = [
   { href: "/wallets", label: "Deposit Wallets", icon: Wallet },
   { href: "/mentors", label: "Mentors", icon: GraduationCap },
   { href: "/community", label: "Community", icon: MessagesSquare },
+  { href: "/announcements", label: "Announcements", icon: Megaphone },
   { href: "/personas", label: "Personas", icon: Bot },
   { href: "/support", label: "Support", icon: LifeBuoy },
   { href: "/referrals", label: "Referrals", icon: UserPlus },

@@ -12,6 +12,7 @@ const { imageFor } = require("../config/productImages");
 
 const BRANDS = ["Vogue", "Gucci", "Zara", "Chanel", "Prada", "Dior", "Versace", "Louis Vuitton", "Burberry", "Hermes"];
 const ITEMS  = ["Tie", "Scarf", "Handbag", "Watch", "Sunglasses", "Belt", "Dress", "Jacket", "Sneakers", "Perfume"];
+const { CATEGORIES, randomBrief } = require("../utils/analystContent");
 
 async function main() {
   await connectDB();
@@ -36,6 +37,8 @@ async function main() {
         originalPrice: 200 + ((i * 37) % 1800),
         isLatest: i % 5 === 0,
         image: imageFor(name, i + 1),
+        category: CATEGORIES[i % CATEGORIES.length],
+        marketBrief: randomBrief(),
       });
     }
     await Product.insertMany(docs);
