@@ -11,6 +11,9 @@ import ChatWidget from "@/components/ChatWidget";
 const MeCtx = createContext(null);
 export function useMe() { return useContext(MeCtx); }
 
+// Signed money, e.g. 120 -> "$120.00", -120 -> "-$120.00".
+const money = v => { const n = Number(v) || 0; return `${n < 0 ? "-" : ""}$${Math.abs(n).toFixed(2)}`; };
+
 // Watches the live balance and toasts when it changes between refreshes.
 function BalanceWatcher({ balance }) {
   const toast = useToast();
@@ -126,11 +129,11 @@ export default function AppShell({ children }) {
             <div className="flex items-center gap-2">
               <div className="hidden sm:flex items-center rounded-full border border-gold/30 text-sm overflow-hidden">
                 <Link href="/wallet/deposit" className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-gold/5" title="Analysis balance">
-                  <Wallet size={15} className="text-gold" /> <span className="text-gold font-semibold">${Number(me.balance || 0).toFixed(2)}</span>
+                  <Wallet size={15} className={Number(me.balance) < 0 ? "text-red-500" : "text-gold"} /> <span className={`font-semibold ${Number(me.balance) < 0 ? "text-red-500" : "text-gold"}`}>{money(me.balance)}</span>
                 </Link>
                 <span className="h-5 w-px bg-gold/20" />
                 <Link href="/invest" className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-emerald-500/5" title="Investment balance">
-                  <TrendingUp size={15} className="text-emerald-500" /> <span className="text-emerald-500 font-semibold">${Number(me.investBalance || 0).toFixed(2)}</span>
+                  <TrendingUp size={15} className={Number(me.investBalance) < 0 ? "text-red-500" : "text-emerald-500"} /> <span className={`font-semibold ${Number(me.investBalance) < 0 ? "text-red-500" : "text-emerald-500"}`}>{money(me.investBalance)}</span>
                 </Link>
               </div>
               <div className="relative">
