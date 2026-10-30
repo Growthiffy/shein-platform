@@ -85,9 +85,14 @@ router.post("/password", auth, async (req, res) => {
 router.get("/referral", auth, async (req, res) => {
   const invited = await User.find({ referredBy: req.user._id })
     .select("email username emailVerified createdAt").sort({ createdAt: -1 }).limit(100);
+  const earnedAgg = await Transaction.aggregate([
+    { $match: { user: req.user._id, type: "reward", note: "referral bonus" } },
+    { $group: { _id: null, total: { $sum: "$amount" } } },
+  ]);
   res.json({
     code: req.user.referralCode || null,
     bonus: REFERRAL_BONUS,
+    earned: +(earnedAgg[0]?.total || 0).toFixed(2),
     count: invited.length,
     verifiedCount: invited.filter(u => u.emailVerified).length,
     invited: invited.map(u => ({
