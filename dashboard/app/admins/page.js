@@ -8,7 +8,8 @@ export default function Admins() {
   const [items, setItems] = useState([]);
   const [perms, setPerms] = useState([]);
   const [meFull, setMeFull] = useState(true);
-  const [form, setForm] = useState({ email: "", username: "", password: "", fullAccess: true, permissions: [] });
+  const [form, setForm] = useState({ email: "", username: "", password: "", fullAccess: false, permissions: [] });
+  const [showAdd, setShowAdd] = useState(false);
   const [msg, setMsg] = useState("");
 
   async function load() {
@@ -20,10 +21,13 @@ export default function Admins() {
 
   async function create() {
     setMsg("");
+    // Restricted operator with zero permissions would be saved as owner (empty
+    // perms = full access on the backend) — make the user pick at least one.
+    if (!form.fullAccess && form.permissions.length === 0) { setMsg("Pick at least one permission, or tick Full access."); return; }
     try {
       const body = { email: form.email, username: form.username, password: form.password, permissions: form.fullAccess ? [] : form.permissions };
       await api("/api/admin/admins", { method: "POST", body });
-      setForm({ email: "", username: "", password: "", fullAccess: true, permissions: [] }); setMsg("operator created ✓"); await load();
+      setForm({ email: "", username: "", password: "", fullAccess: false, permissions: [] }); setShowAdd(false); setMsg("operator created ✓"); await load();
     } catch (e) { setMsg(e.message); }
   }
   async function remove(id) {
@@ -42,25 +46,23 @@ export default function Admins() {
 
   return (
     <Shell>
-      <div className="flex items-center gap-2 mb-1"><ShieldCheck size={20} className="text-gold" /><h1 className="text-2xl text-gold font-display">Admin Operators</h1></div>
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <div className="flex items-center gap-2"><ShieldCheck size={20} className="text-gold" /><h1 className="text-2xl text-gold font-display">Admin Operators</h1></div>
+        {meFull && <button className="btn" onClick={() => { setShowAdd(s => !s); setMsg(""); }}>{showAdd ? "Close" : "+ Add operator"}</button>}
+      </div>
       <p className="text-cream/50 text-sm mb-5">Backend operators — separate from members. Scope each operator's access with permissions; full access = owner.</p>
 
-      <div className="grid lg:grid-cols-3 gap-4">
-        <div className="card p-4 lg:col-span-2 space-y-3">
-          {items.map(a => (
-            <OperatorRow key={a._id} op={a} perms={perms} canEdit={meFull} onSave={savePerms} onSaveMentor={saveMentor} onRemove={() => remove(a._id)} />
-          ))}
-          {!items.length && <div className="text-cream/50">No operators.</div>}
-        </div>
-
-        <div className="card p-4 space-y-3 h-max">
+      {showAdd && meFull && (
+        <div className="card p-4 space-y-3 mb-4 max-w-2xl">
           <div className="text-gold">Add operator</div>
-          <label className="text-sm block">Username *<input className="w-full mt-1" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} required /></label>
-          <label className="text-sm block">Email (optional)<input className="w-full mt-1" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></label>
-          <label className="text-sm block">Password (min 8)<input type="password" className="w-full mt-1" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></label>
+          <div className="grid sm:grid-cols-3 gap-3">
+            <label className="text-sm block">Username *<input className="w-full mt-1" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} required /></label>
+            <label className="text-sm block">Email (optional)<input className="w-full mt-1" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></label>
+            <label className="text-sm block">Password (min 8)<input type="password" className="w-full mt-1" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></label>
+          </div>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.fullAccess} onChange={e => setForm({ ...form, fullAccess: e.target.checked })} /> Full access (owner)</label>
           {!form.fullAccess && (
-            <div className="grid grid-cols-2 gap-1">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
               {perms.map(p => (
                 <label key={p.key} className="flex items-center gap-1.5 text-xs">
                   <input type="checkbox" checked={form.permissions.includes(p.key)}
@@ -70,9 +72,18 @@ export default function Admins() {
               ))}
             </div>
           )}
-          <button className="btn w-full" onClick={create}>Create operator</button>
-          {msg && <div className="text-cream/60 text-sm">{msg}</div>}
+          <div className="flex items-center gap-3">
+            <button className="btn" onClick={create}>Create operator</button>
+            {msg && <div className="text-cream/60 text-sm">{msg}</div>}
+          </div>
         </div>
+      )}
+
+      <div className="card p-4 space-y-3">
+        {items.map(a => (
+          <OperatorRow key={a._id} op={a} perms={perms} canEdit={meFull} onSave={savePerms} onSaveMentor={saveMentor} onRemove={() => remove(a._id)} />
+        ))}
+        {!items.length && <div className="text-cream/50">No operators.</div>}
       </div>
     </Shell>
   );
