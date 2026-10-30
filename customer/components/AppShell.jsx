@@ -124,8 +124,8 @@ export default function AppShell({ children }) {
                   </div>
                 )}
               </div>
-              <Link href="/profile" className="grid h-9 w-9 place-items-center rounded-full gold-grad text-white font-display font-bold">
-                {(me.username || me.email)[0]?.toUpperCase()}
+              <Link href="/profile" className="grid h-9 w-9 place-items-center rounded-full gold-grad text-white font-display font-bold overflow-hidden">
+                {me.avatar ? <img src={me.avatar} alt="" className="h-full w-full object-cover" /> : (me.username || me.email)[0]?.toUpperCase()}
               </Link>
               <button onClick={logout} title="Sign out" className="hidden md:grid h-9 w-9 place-items-center rounded-full border border-gold/20 hover:border-gold/50"><LogOut size={15} /></button>
             </div>

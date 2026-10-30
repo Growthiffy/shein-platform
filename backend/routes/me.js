@@ -26,7 +26,13 @@ function activateExpiredHolds(user) {
 
 router.get("/", auth, async (req, res) => {
   await accrueAndUpgrade(req.user);
-  if (activateExpiredHolds(req.user)) await req.user.save();
+  let dirty = activateExpiredHolds(req.user);
+  // Backfill Basic for members verified before the KYC feature existed.
+  if (req.user.emailVerified && (!req.user.verification || !req.user.verification.level || req.user.verification.level === "none")) {
+    req.user.verification = { ...(req.user.verification?.toObject?.() || req.user.verification || {}), level: "basic" };
+    dirty = true;
+  }
+  if (dirty) await req.user.save();
   res.json({ user: publicUser(req.user) });
 });
 

@@ -2,7 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import AppShell, { useMe } from "@/components/AppShell";
 import { api } from "@/lib/api";
-import { Send, Trash2, Reply, X, SmilePlus } from "lucide-react";
+import Link from "next/link";
+import { Send, Trash2, Reply, X, SmilePlus, ShieldCheck } from "lucide-react";
 
 const GROUPS = [{ id: "daily", label: "Daily Analysts" }, { id: "invest", label: "Investors" }];
 
@@ -21,6 +22,7 @@ function Body() {
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState(null);
   const [blocked, setBlocked] = useState(false);
+  const [needVerify, setNeedVerify] = useState(false);
   const [typing, setTyping] = useState([]);
   const [online, setOnline] = useState({});
   const [picker, setPicker] = useState(null); // messageId with open reaction picker
@@ -29,9 +31,13 @@ function Body() {
 
   async function load(g, scroll = true) {
     try {
-      const d = await api(`/api/community/${g}`); setItems(d.items); setTyping(d.typing || []); setBlocked(false);
+      const d = await api(`/api/community/${g}`); setItems(d.items); setTyping(d.typing || []); setBlocked(false); setNeedVerify(false);
       if (scroll) setTimeout(() => box.current?.scrollTo(0, box.current.scrollHeight), 50);
-    } catch (e) { if (String(e.message).includes("access")) { setBlocked(true); setItems([]); } }
+    } catch (e) {
+      const m = String(e.message);
+      if (/verification/i.test(m)) { setNeedVerify(true); setItems([]); setBlocked(false); }
+      else if (/access/i.test(m)) { setBlocked(true); setItems([]); setNeedVerify(false); }
+    }
   }
   useEffect(() => {
     setReplyTo(null); load(group);
@@ -83,7 +89,16 @@ function Body() {
         </div>
       </div>
 
-      <div ref={box} className="card mt-5 h-[62vh] overflow-y-auto p-3 md:p-4 space-y-2.5">
+      {needVerify && (
+        <div className="card mt-5 p-8 text-center">
+          <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-gold/10 text-gold"><ShieldCheck size={24} /></div>
+          <h3 className="font-display text-xl text-gold">Standard verification required</h3>
+          <p className="text-cream/60 mt-1 max-w-md mx-auto">Full community access unlocks at the Standard verification level. It only takes a minute — add your name and country.</p>
+          <Link href="/verification" className="btn-gold mt-4 inline-flex">Verify now</Link>
+        </div>
+      )}
+
+      {!needVerify && <div ref={box} className="card mt-5 h-[62vh] overflow-y-auto p-3 md:p-4 space-y-2.5">
         {items.map(m => {
           const mine = m.authorType === "user" && m.user && String(m.user) === String(me.id);
           const staff = m.authorType === "staff" || m.authorType === "ai" || m.authorType === "persona";
@@ -146,7 +161,7 @@ function Body() {
             {typing.join(", ")} {typing.length > 1 ? "are" : "is"} typing…
           </div>
         )}
-      </div>
+      </div>}
 
       {replyTo && (
         <div className="mt-2 flex items-center gap-2 rounded-lg border border-line bg-ink2 px-3 py-2">
@@ -159,12 +174,14 @@ function Body() {
         </div>
       )}
 
+      {!needVerify && (
       <div className="flex items-end gap-2 mt-2">
         <textarea ref={inputRef} value={text} onChange={e => setText(e.target.value)} onKeyDown={onKey} rows={1} disabled={blocked}
           placeholder="Write a message…  (Enter to send, Shift+Enter new line, @ to tag)"
           className="field flex-1 resize-none max-h-32 disabled:opacity-40" />
         <button className="btn-gold h-11 w-12 shrink-0 !px-0" onClick={send} disabled={blocked}><Send size={16} /></button>
       </div>
+      )}
     </div>
   );
 }
