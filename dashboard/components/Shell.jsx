@@ -27,24 +27,23 @@ const NAV = [
   { href: "/settings", label: "Settings", icon: Settings, perm: "settings" },
 ];
 
+// Module-level caches persist across client-side navigations (Shell remounts per
+// page). Seeding state from them stops the nav — especially "My Juniors" — from
+// flickering out while /api/me + /api/mentor-admin/me re-resolve on every route.
+let ME_CACHE = null;
+let IS_MENTOR_CACHE = false;
+
 export default function Shell({ children }) {
   const p = usePathname();
   const r = useRouter();
-  const [me, setMe] = useState(null);
-  // Seed from a cached value so the "My Juniors" item doesn't flicker out on every
-  // navigation (Shell remounts per page) while /api/mentor-admin/me re-resolves.
-  const [isMentor, setIsMentor] = useState(() => {
-    try { return sessionStorage.getItem("shein_is_mentor") === "1"; } catch { return false; }
-  });
+  const [me, setMe] = useState(ME_CACHE);
+  const [isMentor, setIsMentor] = useState(IS_MENTOR_CACHE);
   useEffect(() => {
     if (!getToken()) { r.push("/"); return; }
     api("/api/me")
-      .then(d => { if (!(d.user?.isAdmin || d.user?.role === "admin")) { setToken(null); r.push("/"); } else setMe(d.user); })
+      .then(d => { if (!(d.user?.isAdmin || d.user?.role === "admin")) { ME_CACHE = null; setToken(null); r.push("/"); } else { ME_CACHE = d.user; setMe(d.user); } })
       .catch(() => { setToken(null); r.push("/"); });
-    api("/api/mentor-admin/me").then(d => {
-      const v = !!d.mentor; setIsMentor(v);
-      try { sessionStorage.setItem("shein_is_mentor", v ? "1" : "0"); } catch {}
-    }).catch(() => {});
+    api("/api/mentor-admin/me").then(d => { IS_MENTOR_CACHE = !!d.mentor; setIsMentor(IS_MENTOR_CACHE); }).catch(() => {});
   }, []);
 
   const full = !me || me.fullAccess !== false;

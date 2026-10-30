@@ -113,7 +113,7 @@ export default function CommunityAdmin() {
         </div>
 
         {/* Chat column */}
-        <div className="card flex flex-col overflow-hidden">
+        <div className="card flex flex-col overflow-hidden min-w-0">
           {/* Room tabs — switch instantly */}
           <div className="flex flex-wrap items-center gap-1.5 p-2.5 border-b border-line">
             {selMember && <span className="text-sm text-cream/70 mr-1">{mName(selMember)}:</span>}
@@ -171,7 +171,7 @@ export default function CommunityAdmin() {
               {note && <span className="text-xs text-cream/50">{note}</span>}
             </div>
             <div className="flex items-end gap-2">
-              <textarea value={text} onChange={e => onType(e.target.value)} onKeyDown={onKey} rows={1} className="flex-1 resize-none max-h-32" placeholder="Join the chat / reply as staff…  (Enter to send)" />
+              <textarea value={text} onChange={e => onType(e.target.value)} onKeyDown={onKey} rows={1} className="flex-1 min-w-0 resize-none max-h-32" placeholder="Join the chat / reply as staff…  (Enter to send)" />
               <button className="btn" onClick={post}><Send size={15} /></button>
             </div>
           </div>
