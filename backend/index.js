@@ -56,6 +56,8 @@ const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30, standardHeade
 app.use("/api/auth", authLimiter);
 
 app.use("/api/public",   require("./routes/public"));
+app.use("/api/stats",    require("./routes/stats"));
+app.use("/api/activity", require("./routes/activity"));
 app.use("/api/auth",     require("./routes/auth"));
 app.use("/api/me",       require("./routes/me"));
 app.use("/api/analyst",  require("./routes/analyst"));

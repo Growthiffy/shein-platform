@@ -3,6 +3,8 @@ import { useState } from "react";
 import Link from "next/link";
 import AppShell, { useMe } from "@/components/AppShell";
 import { LineChart, TrendingUp, Users, Crown, ArrowUpRight, Wallet, UserPlus } from "lucide-react";
+import LiveStats from "@/components/dashboard/LiveStats";
+import ActivityFeed from "@/components/dashboard/ActivityFeed";
 
 export default function DashboardPage() { return <AppShell><Body /></AppShell>; }
 
@@ -46,6 +48,9 @@ function Body() {
         <Link href="/wallet/withdraw" className="btn-outline"><ArrowUpRight size={16} /> Withdraw</Link>
         <Link href="/referral" className="btn-outline"><UserPlus size={16} /> Invite &amp; Earn</Link>
       </div>
+
+      <LiveStats />
+      <ActivityFeed />
 
       <h2 className="mt-10 font-display text-2xl text-gold">Your paths</h2>
       <div className="mt-4 grid gap-5 sm:grid-cols-2">
