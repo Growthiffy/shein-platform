@@ -43,9 +43,9 @@ export default function Personas() {
         </div>
       </div>
       <div className="grid grid-cols-3 gap-4">
-        <div className="card overflow-x-auto col-span-2">
+        <div className="card overflow-auto col-span-2" style={{ maxHeight: "72vh" }}>
           <table>
-            <thead><tr className="text-cream/60"><th>Name</th><th>Title</th><th>Group</th><th>Replies</th><th>Active</th><th></th></tr></thead>
+            <thead className="sticky top-0 bg-ink z-10"><tr className="text-cream/60"><th>Name</th><th>Title</th><th>Group</th><th>Replies</th><th>Active</th><th></th></tr></thead>
             <tbody>
               {items.map(p => (
                 <tr key={p._id}>

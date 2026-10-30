@@ -164,7 +164,7 @@ export default function MyJuniors() {
         </div>
 
         {/* thread */}
-        <div className="flex flex-col min-h-0" style={{ background: "repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0 2px, transparent 2px 24px)" }}>
+        <div className="flex flex-col min-h-0 min-w-0" style={{ background: "repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0 2px, transparent 2px 24px)" }}>
           {!active && <div className="text-cream/45 text-sm m-auto">Select a chat to start messaging.</div>}
           {active && (
             <>
@@ -207,7 +207,7 @@ export default function MyJuniors() {
                 <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={sendFile} />
                 <button className="btn-ghost h-11 w-11 shrink-0 !px-0 grid place-items-center" onClick={() => fileRef.current?.click()} title="Attach"><Paperclip size={17} /></button>
                 <textarea value={text} onChange={e => onType(e.target.value)} onKeyDown={onKey} rows={1}
-                  placeholder="Type a message…  (Enter to send, Shift+Enter new line)" className="flex-1 resize-none max-h-32" />
+                  placeholder="Type a message…  (Enter to send, Shift+Enter new line)" className="flex-1 min-w-0 resize-none max-h-32" />
                 <button className="btn h-11 w-12 shrink-0 !px-0 grid place-items-center" onClick={send}><Send size={16} /></button>
               </div>
             </>
