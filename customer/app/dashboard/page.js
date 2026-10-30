@@ -8,6 +8,7 @@ import ActivityFeed from "@/components/dashboard/ActivityFeed";
 import Onboarding from "@/components/dashboard/Onboarding";
 import { AnnouncementBanner, AnnouncementsSection } from "@/components/dashboard/Announcements";
 import { CountUp } from "@/components/ui";
+import { SalaryCountdown, InvestmentCard, BalanceChart } from "@/components/dashboard/LiveWidgets";
 
 export default function DashboardPage() { return <AppShell><Body /></AppShell>; }
 
@@ -41,10 +42,11 @@ function Body() {
       </div>
 
       {/* balance strip */}
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="stat fadein"><div className="label">Balance</div><div className="text-2xl font-semibold text-gold mt-1"><CountUp value={me.balance ?? 0} prefix="$" /></div></div>
         <div className="stat fadein-2"><div className="label">Total Earned</div><div className="text-2xl font-semibold mt-1"><CountUp value={me.totalEarned ?? 0} prefix="$" /></div></div>
         <div className="stat fadein-3"><div className="label">Daily Salary</div><div className="text-2xl font-semibold mt-1">${me.dailySalary ?? 230}</div></div>
+        <SalaryCountdown />
       </div>
 
       <div className="mt-4 flex flex-wrap gap-3">
@@ -55,6 +57,8 @@ function Body() {
 
       <LiveStats />
       <Onboarding />
+      <InvestmentCard />
+      <BalanceChart />
       <ActivityFeed />
       <AnnouncementsSection />
 

@@ -192,6 +192,28 @@ router.post("/verify/id", auth, async (req, res) => {
   res.json({ user: publicUser(req.user) });
 });
 
+// Balance-over-time, reconstructed by replaying settled transactions. Returns up
+// to 30 points for a lightweight dashboard chart (illustrative, not accounting).
+router.get("/balance-history", auth, async (req, res) => {
+  const txs = await Transaction.find({ user: req.user._id, status: { $ne: "rejected" } }).sort({ createdAt: 1 });
+  const sign = { deposit: 1, withdrawal: -1, commission: 1, salary: 1, invest_payout: 1, reward: 1, invest_release: 1, invest_lock: -1, adjustment: 1 };
+  let bal = 0;
+  const points = [{ at: req.user.createdAt || (txs[0]?.createdAt) || new Date(), balance: 0 }];
+  for (const t of txs) {
+    const s = sign[t.type] ?? 0;
+    bal = +(bal + s * t.amount).toFixed(2);
+    points.push({ at: t.createdAt, balance: bal });
+  }
+  // Downsample to <=30 points, always keeping the last.
+  let out = points;
+  if (points.length > 30) {
+    const step = Math.ceil(points.length / 30);
+    out = points.filter((_, i) => i % step === 0);
+    if (out[out.length - 1] !== points[points.length - 1]) out.push(points[points.length - 1]);
+  }
+  res.json({ points: out, current: +(req.user.balance || 0).toFixed(2) });
+});
+
 // Onboarding checklist, derived from existing user state (no new flags beyond
 // the one-shot `onboardingComplete` latch for the completion notification).
 router.get("/onboarding", auth, async (req, res) => {
