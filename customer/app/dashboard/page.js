@@ -5,6 +5,7 @@ import AppShell, { useMe } from "@/components/AppShell";
 import { LineChart, TrendingUp, Users, Crown, ArrowUpRight, Wallet, UserPlus } from "lucide-react";
 import LiveStats from "@/components/dashboard/LiveStats";
 import ActivityFeed from "@/components/dashboard/ActivityFeed";
+import Onboarding from "@/components/dashboard/Onboarding";
 
 export default function DashboardPage() { return <AppShell><Body /></AppShell>; }
 
@@ -50,6 +51,7 @@ function Body() {
       </div>
 
       <LiveStats />
+      <Onboarding />
       <ActivityFeed />
 
       <h2 className="mt-10 font-display text-2xl text-gold">Your paths</h2>

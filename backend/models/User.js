@@ -66,6 +66,9 @@ const UserSchema = new mongoose.Schema({
   loginAlerts: { type: Boolean, default: true },
   tokenVersion: { type: Number, default: 0 },
 
+  // Onboarding: latch so the "all done" notification fires only once.
+  onboardingComplete: { type: Boolean, default: false },
+
   analyst: {
     cycleCount:   { type: Number, default: 0 },     // products submitted in current cycle (0-27)
     pendingProduct: { type: mongoose.Schema.Types.ObjectId, ref: "Product", default: null },

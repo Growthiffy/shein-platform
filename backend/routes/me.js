@@ -4,6 +4,8 @@ const { auth } = require("../middleware/auth");
 const { publicUser } = require("./auth");
 const User = require("../models/User");
 const LoginHistory = require("../models/LoginHistory");
+const Transaction = require("../models/Transaction");
+const ChatMessage = require("../models/ChatMessage");
 const { levelFor } = require("../utils/pricing");
 const { accrueAndUpgrade } = require("../utils/accrual");
 const { REFERRAL_BONUS } = require("../config/levels");
@@ -84,6 +86,34 @@ router.get("/referral", auth, async (req, res) => {
 router.get("/security", auth, async (req, res) => {
   const logins = await LoginHistory.find({ user: req.user._id }).sort({ createdAt: -1 }).limit(20);
   res.json({ logins });
+});
+
+// Onboarding checklist, derived from existing user state (no new flags beyond
+// the one-shot `onboardingComplete` latch for the completion notification).
+router.get("/onboarding", auth, async (req, res) => {
+  const u = req.user;
+  const [depositCount, chatCount] = await Promise.all([
+    Transaction.countDocuments({ user: u._id, type: "deposit", status: "approved" }),
+    ChatMessage.countDocuments({ user: u._id, authorType: "user" }),
+  ]);
+  const steps = [
+    { key: "verify_email", done: !!u.emailVerified, label: "Verify your email" },
+    { key: "set_username", done: !!u.username, label: "Choose a username" },
+    { key: "first_analysis", done: (u.analyst?.cycleCount || 0) > 0, label: "Submit your first analysis" },
+    { key: "first_deposit", done: depositCount > 0, label: "Make your first deposit" },
+    { key: "join_community", done: chatCount > 0, label: "Send a message in Community" },
+    { key: "choose_mentor", done: !!u.mentor, label: "Choose a mentor" },
+  ];
+  const completedCount = steps.filter(s => s.done).length;
+  const allDone = completedCount === steps.length;
+
+  if (allDone && !u.onboardingComplete) {
+    u.onboardingComplete = true;
+    u.notifications.push({ text: "Welcome aboard! You've completed your onboarding. All platform features are now unlocked.", type: "success" });
+    await u.save();
+  }
+
+  res.json({ steps, completedCount, totalCount: steps.length, allDone });
 });
 
 // Mark all notifications read.
