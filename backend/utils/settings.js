@@ -6,6 +6,37 @@ const DEFAULTS = {
   minWithdrawalUsd: 50,
   investLockWeeks: 4,
   personaChatIntervalMin: 15,
+
+  // Activity feed + public stats
+  activityFeedEnabled: true,
+  platformMemberCount: 12847,
+
+  // Persona active hours (server timezone, 0-23)
+  personaActiveHoursStart: 7,
+  personaActiveHoursEnd: 23,
+
+  // Company identity (footer + legal pages)
+  companyName: "Shein Global Ltd",
+  companyRegistration: "SG-2021-48271",
+  socialTelegram: "",
+  socialTwitter: "",
+  socialInstagram: "",
+  supportEmail: "support@shein-global.com",
+  supportPhone: "+44 20 7946 0958",
+
+  // Financial flow
+  withdrawalFeeUsd: 2.5,
+  withdrawalProcessingHours: 72,
+  depositDailyLimit: 50000,
+  depositMonthlyLimit: 200000,
+
+  // KYC
+  verificationWithdrawalThreshold: 500,
+
+  // Support auto-reply
+  supportAutoReplyEnabled: true,
+  supportAutoReplyText:
+    "Thank you for contacting Shein Support. Your ticket #{ticketNumber} has been created. A support specialist will respond within 24 hours. For urgent matters, email support@shein-global.com.",
 };
 
 async function getSetting(key) {

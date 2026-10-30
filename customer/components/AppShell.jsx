@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { api, getToken, setToken } from "@/lib/api";
 import { LayoutGrid, LineChart, TrendingUp, Users, User, Bell, LogOut, Wallet } from "lucide-react";
+import Footer from "@/components/Footer";
 
 const MeCtx = createContext(null);
 export function useMe() { return useContext(MeCtx); }
@@ -102,6 +103,8 @@ export default function AppShell({ children }) {
         </header>
 
         {children}
+
+        <Footer />
 
         {/* mobile bottom nav */}
         <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-gold/15 bg-ink/95 backdrop-blur">
