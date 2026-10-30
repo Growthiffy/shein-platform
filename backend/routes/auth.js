@@ -5,14 +5,14 @@ const User = require("../models/User");
 const Counter = require("../models/Counter");
 const LoginHistory = require("../models/LoginHistory");
 const Transaction = require("../models/Transaction");
-const { sendVerificationCode, mailConfigured } = require("../utils/mailer");
+const { sendVerificationCode, sendLoginAlert, mailConfigured } = require("../utils/mailer");
 const { SIGNUP_REWARD, REFERRAL_BONUS } = require("../config/levels");
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const isProd = process.env.NODE_ENV === "production" || !!process.env.VERCEL;
 
 function makeCode() { return String(Math.floor(100000 + Math.random() * 900000)); }
-function sign(u) { return jwt.sign({ id: u._id.toString() }, process.env.JWT_SECRET, { expiresIn: "30d" }); }
+function sign(u) { return jwt.sign({ id: u._id.toString(), tv: u.tokenVersion || 0 }, process.env.JWT_SECRET, { expiresIn: "30d" }); }
 
 // Unique short invite code.
 async function makeReferralCode() {
@@ -25,7 +25,10 @@ async function makeReferralCode() {
 
 function recordLogin(user, req) {
   const ip = (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.ip;
-  LoginHistory.create({ user: user._id, ip, userAgent: req.headers["user-agent"] }).catch(() => {});
+  const userAgent = req.headers["user-agent"];
+  LoginHistory.create({ user: user._id, ip, userAgent }).catch(() => {});
+  // Best-effort login alert email (no-op in dev with no mail provider).
+  if (user.loginAlerts !== false) sendLoginAlert(user, { ip, userAgent }).catch(() => {});
 }
 
 // Deliver a verification code. Returns {sent, devCode}. Throws only if a mail

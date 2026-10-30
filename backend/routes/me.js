@@ -1,5 +1,6 @@
 const router = require("express").Router();
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const { auth } = require("../middleware/auth");
 const { publicUser } = require("./auth");
 const User = require("../models/User");
@@ -9,9 +10,23 @@ const ChatMessage = require("../models/ChatMessage");
 const { levelFor } = require("../utils/pricing");
 const { accrueAndUpgrade } = require("../utils/accrual");
 const { REFERRAL_BONUS } = require("../config/levels");
+const { authenticator } = require("otplib");
+
+const WALLET_HOLD_MS = 24 * 3600 * 1000;
+// Flip any payout wallet past its 24h security hold to active. Returns true if changed.
+function activateExpiredHolds(user) {
+  let changed = false;
+  for (const w of user.payoutWallets || []) {
+    if (w.active === false && w.addedAt && Date.now() - new Date(w.addedAt).getTime() >= WALLET_HOLD_MS) {
+      w.active = true; changed = true;
+    }
+  }
+  return changed;
+}
 
 router.get("/", auth, async (req, res) => {
   await accrueAndUpgrade(req.user);
+  if (activateExpiredHolds(req.user)) await req.user.save();
   res.json({ user: publicUser(req.user) });
 });
 
@@ -28,7 +43,8 @@ router.post("/username", auth, async (req, res) => {
 router.post("/payout-wallet", auth, async (req, res) => {
   const { chain, address, label } = req.body || {};
   if (!chain || !address) return res.status(400).json({ error: "chain + address required" });
-  req.user.payoutWallets.push({ chain, address, label });
+  // New addresses enter a 24h security hold (active:false) before use.
+  req.user.payoutWallets.push({ chain, address, label, addedAt: new Date(), active: false });
   await req.user.save();
   res.json({ user: publicUser(req.user) });
 });
@@ -86,6 +102,62 @@ router.get("/referral", auth, async (req, res) => {
 router.get("/security", auth, async (req, res) => {
   const logins = await LoginHistory.find({ user: req.user._id }).sort({ createdAt: -1 }).limit(20);
   res.json({ logins });
+});
+
+// Anti-phishing code: a personal phrase shown in every platform email.
+router.post("/anti-phish", auth, async (req, res) => {
+  const code = String(req.body?.code || "").trim().slice(0, 40);
+  if (!code) return res.status(400).json({ error: "code required" });
+  req.user.antiPhishCode = code;
+  await req.user.save();
+  res.json({ user: publicUser(req.user) });
+});
+
+// Toggle login-alert emails.
+router.post("/login-alerts", auth, async (req, res) => {
+  req.user.loginAlerts = !!req.body?.enabled;
+  await req.user.save();
+  res.json({ user: publicUser(req.user) });
+});
+
+// Active sessions (recent logins formatted) + revoke-all.
+router.get("/sessions", auth, async (req, res) => {
+  const logins = await LoginHistory.find({ user: req.user._id }).sort({ createdAt: -1 }).limit(20);
+  res.json({ sessions: logins.map(l => ({
+    id: l._id, ip: l.ip, userAgent: l.userAgent, at: l.createdAt,
+  })) });
+});
+router.post("/sessions/revoke-all", auth, async (req, res) => {
+  req.user.tokenVersion = (req.user.tokenVersion || 0) + 1;
+  await req.user.save();
+  // Re-issue a token for the current device so it stays signed in.
+  const token = jwt.sign({ id: req.user._id.toString(), tv: req.user.tokenVersion }, process.env.JWT_SECRET, { expiresIn: "30d" });
+  res.json({ ok: true, token });
+});
+
+// Two-factor (TOTP) setup → enable → disable.
+router.post("/2fa/setup", auth, async (req, res) => {
+  const secret = authenticator.generateSecret();
+  req.user.twoFactorSecret = secret;        // stored but not enabled until confirmed
+  await req.user.save();
+  const label = encodeURIComponent(req.user.email || req.user.username || "member");
+  const otpauth = authenticator.keyuri(label, "Shein", secret);
+  res.json({ secret, otpauth });
+});
+router.post("/2fa/enable", auth, async (req, res) => {
+  const token = String(req.body?.token || "").trim();
+  if (!req.user.twoFactorSecret) return res.status(400).json({ error: "run setup first" });
+  const ok = authenticator.check(token, req.user.twoFactorSecret);
+  if (!ok) return res.status(400).json({ error: "invalid code" });
+  req.user.twoFactorEnabled = true;
+  await req.user.save();
+  res.json({ user: publicUser(req.user) });
+});
+router.post("/2fa/disable", auth, async (req, res) => {
+  req.user.twoFactorEnabled = false;
+  req.user.twoFactorSecret = undefined;
+  await req.user.save();
+  res.json({ user: publicUser(req.user) });
 });
 
 // Standard verification: personal info. Upgrades immediately (feels like a

@@ -75,6 +75,13 @@ router.post("/withdraw", auth, async (req, res) => {
   if (amt < minWithdrawalUsd) return res.status(400).json({ error: `below minimum withdrawal of $${minWithdrawalUsd}` });
   if (amt > req.user.balance) return res.status(400).json({ error: "insufficient balance" });
 
+  // 24h security hold: reject withdrawals to an address still on hold.
+  const wallet = (req.user.payoutWallets || []).find(w => w.address === address);
+  if (wallet && wallet.active === false) {
+    const until = wallet.addedAt ? new Date(new Date(wallet.addedAt).getTime() + 24 * 3600 * 1000) : null;
+    return res.status(400).json({ error: `This withdrawal address is in a 24-hour security hold. Please wait until ${until ? until.toLocaleString() : "the hold clears"}.` });
+  }
+
   // KYC gate: large withdrawals require Standard verification.
   const threshold = Number(s.verificationWithdrawalThreshold);
   const vLevel = req.user.verification?.level || "none";
