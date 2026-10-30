@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { api, setToken, getToken } from "@/lib/api";
 import { useEffect, useState } from "react";
+import NotifBell from "@/components/NotifBell";
 import { LayoutDashboard, Users, Package, ArrowLeftRight, Wallet, GraduationCap, MessagesSquare, Bot, Settings, History, LifeBuoy, UserPlus, LogOut, ShieldCheck, Megaphone, UsersRound, Layers, FileText, Inbox } from "lucide-react";
 
 const NAV = [
@@ -51,7 +52,10 @@ export default function Shell({ children }) {
   return (
     <main className="min-h-screen flex bg-ink text-cream">
       <aside className="w-60 shrink-0 border-r border-gold/10 p-4 flex flex-col">
-        <div className="font-display text-xl text-gold tracking-widest mb-5 px-2">SHEIN · Admin</div>
+        <div className="flex items-center justify-between mb-5 px-2">
+          <span className="font-display text-xl text-gold tracking-widest">SHEIN · Admin</span>
+          <NotifBell />
+        </div>
         <nav className="space-y-0.5 flex-1">
           {nav.map(n => {
             const Icon = n.icon; const on = p === n.href || (n.href !== "/overview" && p.startsWith(n.href));

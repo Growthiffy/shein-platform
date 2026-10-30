@@ -2,6 +2,8 @@ const router = require("express").Router();
 const { auth } = require("../middleware/auth");
 const SupportMessage = require("../models/SupportMessage");
 const { getSettings } = require("../utils/settings");
+const { notifyAdmins } = require("../utils/adminNotify");
+const uname = u => u.username || (u.email ? u.email.split("@")[0] : "member");
 
 // Member view = the CURRENT (active) session only. Ending a chat marks every
 // message closed:true, so the member's next load is empty (a fresh chat). Admins
@@ -20,6 +22,7 @@ router.post("/", auth, async (req, res) => {
   // A new thread = no open messages before this one → trigger the auto-reply.
   const isNewThread = !(await SupportMessage.exists({ user: req.user._id, closed: false }));
   const msg = await SupportMessage.create({ user: req.user._id, from: "user", text, closed: false, readByStaff: false });
+  notifyAdmins("support", { title: `Support message from ${uname(req.user)}`, body: text.slice(0, 140), user: req.user._id, userName: uname(req.user) });
 
   if (isNewThread) {
     const s = await getSettings(["supportAutoReplyEnabled", "supportAutoReplyText"]);

@@ -10,6 +10,8 @@ const { PRODUCTS_PER_CYCLE } = require("../config/levels");
 const { getSetting } = require("../utils/settings");
 const { ensureProductMeta, validateComment, qualityScore } = require("../utils/analystContent");
 const { logChange } = require("../utils/ledger");
+const { notifyAdmins } = require("../utils/adminNotify");
+const uname = u => u.username || (u.email ? u.email.split("@")[0] : "member");
 
 const VALID_RECS = ["stock_more", "maintain", "reduce", "discontinue"];
 function rating(v) { const n = Number(v); return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null; }
@@ -122,6 +124,7 @@ router.post("/combo/complete", auth, async (req, res) => {
   const updated = await User.findByIdAndUpdate(u._id, { $inc: { balance: credit, totalEarned: commission, "analyst.cycleCount": 1 } }, { new: true });
   await logChange(u._id, r2(Number(updated.balance) - credit), credit, updated.balance, "Combo Order Completed");
   await Transaction.create({ user: u._id, type: "commission", amount: commission, note: "Combo lot completed" });
+  notifyAdmins("combo", { title: `Combo completed by ${uname(u)}`, body: `Earned $${commission.toLocaleString()} commission`, user: u._id, userName: uname(u), meta: { commission } });
   res.json({ ok: true, dividend: commission, balance: r2(updated.balance), cycleComplete: updated.analyst.cycleCount >= PRODUCTS_PER_CYCLE });
 });
 
@@ -177,6 +180,7 @@ router.post("/submit", auth, async (req, res) => {
   });
 
   await Transaction.create({ user: u._id, type: "commission", amount: q.profitAmount, note: `Product ${product.brand} ${product.name}` });
+  notifyAdmins("analyst", { title: `Analyst trade by ${uname(u)}`, body: `${product.brand} ${product.name} — +$${Number(q.profitAmount).toLocaleString()}`, user: u._id, userName: uname(u), meta: { commission: q.profitAmount, product: `${product.brand} ${product.name}` } });
 
   const cooldownSec = Number(await getSetting("analystCooldownSec")) || 45;
   const cycleComplete = claim.analyst.cycleCount >= PRODUCTS_PER_CYCLE;

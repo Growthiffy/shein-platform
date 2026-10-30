@@ -6,6 +6,8 @@ const User = require("../models/User");
 const { getSetting, getSettings } = require("../utils/settings");
 const { levelFor } = require("../utils/pricing");
 const { logChange } = require("../utils/ledger");
+const { notifyAdmins } = require("../utils/adminNotify");
+const uname = u => u.username || (u.email ? u.email.split("@")[0] : "member");
 
 // Public (to signed-in members) whitelist of wallet limits. Never exposes the
 // raw Setting table — only the fields the customer app needs to render.
@@ -66,6 +68,7 @@ router.post("/deposit", auth, async (req, res) => {
     processingStage: "submitted",
     stageHistory: [{ stage: "submitted", at: new Date(), note: "Deposit submitted" }],
   });
+  notifyAdmins("deposit", { title: `Deposit request — $${amt.toLocaleString()}`, body: `${uname(req.user)} submitted a ${chain || ""} deposit`, user: req.user._id, userName: uname(req.user), meta: { amount: amt, chain, txId: String(tx._id) } });
   res.json({ tx });
 });
 
@@ -133,6 +136,7 @@ router.post("/withdraw", auth, async (req, res) => {
   }
   const balance = +Number(updated.balance).toFixed(2);
   await logChange(req.user._id, +(balance + amt).toFixed(2), -amt, balance, "Withdrawal (hold)");
+  notifyAdmins("withdrawal", { title: `Withdrawal request — $${amt.toLocaleString()}`, body: `${uname(req.user)} requested a ${chain || ""} withdrawal to ${address}`, user: req.user._id, userName: uname(req.user), meta: { amount: amt, chain, address, txId: String(tx._id) } });
   res.json({
     tx, balance,
     breakdown: { amount: amt, networkFee: fee, youReceive: +(amt - fee).toFixed(2), estimatedCompletion },

@@ -6,6 +6,7 @@ const { maybeMentorReply } = require("../utils/mentorTick");
 const { typingNames } = require("../utils/presence");
 const { fillGap } = require("../utils/backfill");
 const Transaction = require("../models/Transaction");
+const { notifyAdmins } = require("../utils/adminNotify");
 
 // Resolve the access gate a group maps to. daily/invest map to their own flag;
 // any mentor:<id> room maps to mentorRooms. Unknown groups are allowed.
@@ -101,11 +102,13 @@ router.post("/:group", auth, async (req, res) => {
   // @mentions parsed from the text.
   const mentions = [...new Set((text.match(/@([A-Za-z0-9._-]{2,30})/g) || []).map(s => s.slice(1)))];
 
+  const authorName = req.user.username || req.user.email.split("@")[0];
   const msg = await ChatMessage.create({
     group, user: req.user._id,
-    authorType: "user", authorName: req.user.username || req.user.email.split("@")[0],
+    authorType: "user", authorName,
     text, replyTo, mentions,
   });
+  notifyAdmins("community", { title: `Community post by ${authorName}`, body: text.slice(0, 140), user: req.user._id, userName: authorName, meta: { group } });
   res.json({ msg });
 });
 

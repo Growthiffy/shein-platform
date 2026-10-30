@@ -7,6 +7,8 @@ const Counter = require("../models/Counter");
 const LoginHistory = require("../models/LoginHistory");
 const Transaction = require("../models/Transaction");
 const { sendVerificationCode, sendLoginAlert, sendWelcome, mailConfigured } = require("../utils/mailer");
+const { notifyAdmins } = require("../utils/adminNotify");
+const unameOf = u => u.username || (u.email ? u.email.split("@")[0] : "member");
 const { SIGNUP_REWARD, REFERRAL_BONUS } = require("../config/levels");
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -118,6 +120,7 @@ router.post("/verify", async (req, res) => {
 
   recordLogin(user, req);
   sendWelcome(user).catch(() => {}); // best-effort welcome email
+  notifyAdmins("signup", { title: `New member: ${unameOf(user)}`, body: `${user.email || ""} joined and verified`, user: user._id, userName: unameOf(user) });
   res.json({ token: sign(user), user: publicUser(user) });
 });
 
@@ -139,6 +142,7 @@ router.post("/login", async (req, res) => {
     }
   }
   recordLogin(user, req);
+  if (!user.isAdmin) notifyAdmins("login", { title: `Login: ${unameOf(user)}`, body: `${user.email || ""} signed in`, user: user._id, userName: unameOf(user) });
   res.json({ token: sign(user), user: publicUser(user) });
 });
 

@@ -4,6 +4,8 @@ const { INVEST_TIERS } = require("../config/levels");
 const Transaction = require("../models/Transaction");
 const User = require("../models/User");
 const { getSetting } = require("../utils/settings");
+const { notifyAdmins } = require("../utils/adminNotify");
+const uname = u => u.username || (u.email ? u.email.split("@")[0] : "member");
 
 router.get("/tiers", async (req, res) => {
   const lockWeeks = Number(await getSetting("investLockWeeks"));
@@ -34,6 +36,7 @@ router.post("/start", auth, async (req, res) => {
   if (!updated) return res.status(400).json({ error: "insufficient balance, or an investment is already active" });
 
   await Transaction.create({ user: req.user._id, type: "invest_lock", amount: amt, note: `Tier ${tier.name}` });
+  notifyAdmins("invest", { title: `Investment started by ${uname(req.user)}`, body: `$${amt.toLocaleString()} locked in ${tier.name}`, user: req.user._id, userName: uname(req.user), meta: { amount: amt, tier: tier.name } });
   res.json({ investment: updated.investment, balance: +Number(updated.balance).toFixed(2) });
 });
 

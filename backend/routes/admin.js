@@ -19,7 +19,9 @@ const AccountChange = require("../models/AccountChange");
 const Page = require("../models/Page");
 const ContactMessage = require("../models/ContactMessage");
 const { logChange } = require("../utils/ledger");
-const { DEFAULTS } = require("../utils/settings");
+const AdminNotification = require("../models/AdminNotification");
+const { TYPES: NOTIF_TYPES } = require("../utils/adminNotify");
+const { DEFAULTS, getSettings } = require("../utils/settings");
 const { sendDepositApproved, sendWithdrawalStatus } = require("../utils/mailer");
 const { PERMISSIONS, KEYS, isFullAccess, hasAccess } = require("../config/permissions");
 
@@ -31,6 +33,8 @@ router.use(auth, admin);
 const AREA = [
   [/^\/stats/, null],
   [/^\/permissions/, null],
+  [/^\/notifications/, null],
+  [/^\/notif-config/, null],
   [/^\/users/, "members"],
   [/^\/broadcast/, "members"],
   [/^\/combos/, "members"],
@@ -747,5 +751,35 @@ router.get("/contact", async (req, res) => {
 });
 router.post("/contact/:id/handled", async (req, res) => res.json({ item: await ContactMessage.findByIdAndUpdate(req.params.id, { handled: req.body?.handled !== false }, { new: true }) }));
 router.delete("/contact/:id", async (req, res) => { await ContactMessage.findByIdAndDelete(req.params.id); res.json({ ok: true }); });
+
+// ---- Admin activity notifications ----
+router.get("/notifications", async (req, res) => {
+  const q = {};
+  if (req.query.type) q.type = req.query.type;
+  if (req.query.unread === "1") q.read = false;
+  const [items, unread] = await Promise.all([
+    AdminNotification.find(q).sort({ createdAt: -1 }).limit(Number(req.query.limit) || 100),
+    AdminNotification.countDocuments({ read: false }),
+  ]);
+  res.json({ items, unread });
+});
+router.post("/notifications/read", async (req, res) => {
+  if (req.body?.all) await AdminNotification.updateMany({ read: false }, { $set: { read: true } });
+  else if (req.body?.id) await AdminNotification.updateOne({ _id: req.body.id }, { $set: { read: true } });
+  res.json({ ok: true });
+});
+router.delete("/notifications", async (req, res) => {
+  // Clear read (default) or all.
+  await AdminNotification.deleteMany(req.query.all === "1" ? {} : { read: true });
+  res.json({ ok: true });
+});
+// Notification types + current mute state (for the dashboard mute UI).
+router.get("/notif-config", async (req, res) => {
+  const keys = NOTIF_TYPES.map(t => `muteNotif_${t}`);
+  const s = await getSettings(keys);
+  const mutes = {};
+  NOTIF_TYPES.forEach(t => { mutes[t] = s[`muteNotif_${t}`] === true || s[`muteNotif_${t}`] === "true"; });
+  res.json({ types: NOTIF_TYPES, mutes });
+});
 
 module.exports = router;

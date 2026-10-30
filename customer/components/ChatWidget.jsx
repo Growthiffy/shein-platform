@@ -61,7 +61,14 @@ export default function ChatWidget() {
         <div className="fixed bottom-24 right-4 z-[60] w-[92vw] max-w-sm rounded-2xl border border-gold/25 bg-ink shadow-2xl overflow-hidden flex flex-col" style={{ height: "min(70vh, 540px)" }}>
           <div className="flex items-center justify-between gap-2 px-4 py-3 gold-grad text-white">
             <div className="flex items-center gap-2"><LifeBuoy size={18} /><div><div className="font-semibold text-sm">Shein Support</div><div className="text-[11px] text-white/80">Usually replies within a few hours</div></div></div>
-            <button onClick={toggle} className="text-white/80 hover:text-white"><X size={18} /></button>
+            <div className="flex items-center gap-2">
+              {!!msgs.length && (
+                <button onClick={endChat} className={`rounded-full px-3 py-1 text-xs font-semibold transition ${confirmEnd ? "bg-white text-red-600" : "bg-white/20 hover:bg-white/30 text-white"}`}>
+                  {confirmEnd ? "Tap to confirm" : "End chat"}
+                </button>
+              )}
+              <button onClick={toggle} className="text-white/80 hover:text-white"><X size={18} /></button>
+            </div>
           </div>
           <div ref={box} className="flex-1 overflow-y-auto p-3 space-y-2 bg-ink2/40">
             {!msgs.length && (
@@ -91,7 +98,6 @@ export default function ChatWidget() {
               <textarea value={text} onChange={e => setText(e.target.value)} onKeyDown={onKey} rows={1} placeholder="Type a message…" className="field flex-1 resize-none max-h-24 text-sm" />
               <button className="btn-gold h-10 w-11 shrink-0 !px-0 grid place-items-center" onClick={() => send()}><Send size={15} /></button>
             </div>
-            {!!msgs.length && <button onClick={endChat} className="mt-1 text-[11px] text-cream/40 hover:text-cream/70">{confirmEnd ? "Tap again to end chat" : "End chat"}</button>}
           </div>
         </div>
       )}

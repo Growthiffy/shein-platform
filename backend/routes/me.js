@@ -8,6 +8,8 @@ const LoginHistory = require("../models/LoginHistory");
 const Transaction = require("../models/Transaction");
 const ChatMessage = require("../models/ChatMessage");
 const AnalystSubmission = require("../models/AnalystSubmission");
+const { notifyAdmins } = require("../utils/adminNotify");
+const unameOf = u => u.username || (u.email ? u.email.split("@")[0] : "member");
 const { levelFor } = require("../utils/pricing");
 const { accrueAndUpgrade } = require("../utils/accrual");
 const { REFERRAL_BONUS } = require("../config/levels");
@@ -186,6 +188,7 @@ router.post("/verify", auth, async (req, res) => {
   if (!["premium", "pending_premium"].includes(v.level)) v.level = "standard";
   req.user.verification = v;
   await req.user.save();
+  notifyAdmins("verification", { title: `Standard verification by ${unameOf(req.user)}`, body: `${v.fullName || ""} · ${v.country || ""}`, user: req.user._id, userName: unameOf(req.user) });
   res.json({ user: publicUser(req.user) });
 });
 
@@ -201,6 +204,7 @@ router.post("/verify/id", auth, async (req, res) => {
   if (v.level !== "premium") v.level = "pending_premium";
   req.user.verification = v;
   await req.user.save();
+  notifyAdmins("verification", { title: `Premium (ID) verification by ${unameOf(req.user)}`, body: `${v.idType || "id"} submitted — review pending`, user: req.user._id, userName: unameOf(req.user) });
   res.json({ user: publicUser(req.user) });
 });
 

@@ -318,6 +318,25 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     await req("PUT", "/api/admin/settings/maintenanceMode", { token: ownerTok, body: { value: false } });
     await sleep(5500);
 
+    // --- admin activity notifications + mute ---
+    await req("POST", "/api/wallet/deposit", { token, body: { amount: 250, chain: "TRC20" } });
+    await sleep(400); // notify is fire-and-forget; let the write land
+    r = await req("GET", "/api/admin/notifications?type=deposit", { token: ownerTok });
+    ok("member action raises an admin notification", r.status === 200 && r.json.items?.some(n => n.type === "deposit") && typeof r.json.unread === "number");
+    const depCount1 = (await req("GET", "/api/admin/notifications?type=deposit", { token: ownerTok })).json.items.length;
+    // mute deposits, wait for the mute cache, then a deposit should NOT add a notification
+    await req("PUT", "/api/admin/settings/muteNotif_deposit", { token: ownerTok, body: { value: true } });
+    await sleep(5500);
+    await req("POST", "/api/wallet/deposit", { token, body: { amount: 260, chain: "TRC20" } });
+    const depCount2 = (await req("GET", "/api/admin/notifications?type=deposit", { token: ownerTok })).json.items.length;
+    ok("muted type does not create notifications", depCount2 === depCount1);
+    r = await req("GET", "/api/admin/notif-config", { token: ownerTok });
+    ok("notif-config reports mutes", r.status === 200 && r.json.mutes?.deposit === true && Array.isArray(r.json.types));
+    await req("PUT", "/api/admin/settings/muteNotif_deposit", { token: ownerTok, body: { value: false } });
+    await req("POST", "/api/admin/notifications/read", { token: ownerTok, body: { all: true } });
+    r = await req("GET", "/api/admin/notifications?limit=1", { token: ownerTok });
+    ok("mark-all-read clears unread", r.status === 200 && r.json.unread === 0);
+
     // deleting your own admin account is blocked
     r = await req("DELETE", `/api/admin/users/${owner._id}`, { token: ownerTok });
     ok("admin cannot delete self -> 400", r.status === 400);
