@@ -779,6 +779,9 @@ router.post("/personas/seed", async (req, res) => {
   const { pool } = require("../utils/fakeIdentities");
   const TITLES = ["Watch collector", "FX trader", "Handbag enthusiast", "Latest-collection fan", "Weekend analyst", "Long-term investor", "Scarf specialist", "Portfolio builder", "Sneaker hunter", "Steady saver", "Perfume reviewer", "Tier climber", "Belt & accessories", "Daily grinder", "Compounding fan", "Dress curator", "Early riser", "Patient trader", "Jacket reviewer", "Sunglasses picks", "Diamond-tier saver", "Community helper", "Momentum trader", "Value hunter"];
   const target = Math.min(1000, Math.max(1, Number(req.body?.target) || 400));
+  // reset:true wipes all personas first, so the whole set is rebuilt unique
+  // (needed to replace older non-unique avatars/names).
+  if (req.body?.reset) await Persona.deleteMany({});
   const existing = await Persona.find().select("name");
   const have = new Set(existing.map(p => p.name));
   const need = target - existing.length;

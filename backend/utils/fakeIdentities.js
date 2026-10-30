@@ -19,29 +19,43 @@ const REGIONS = [
 
 function hash(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0; return h >>> 0; }
 
+// Surnames so every identity gets a full, distinct name (first + last). 30 firsts
+// per region × 80 surnames ≫ 400 combinations, so uniqueness is trivial.
+const SURNAMES = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Miller", "Davis", "Wilson", "Taylor", "Clark", "Walker", "Hall", "Allen", "Young", "King", "Wright", "Scott", "Green", "Baker", "Adams", "Nelson", "Carter", "Mitchell", "Roberts", "Turner", "Phillips", "Campbell", "Parker", "Evans", "Edwards", "Collins", "Stewart", "Morris", "Murphy", "Cook", "Rogers", "Morgan", "Bell", "Bailey", "Cooper", "Reed", "Kelly", "Howard", "Cox", "Ward", "Richardson", "Watson", "Brooks", "Chavez", "Wood", "Hughes", "Price", "Sanders", "Patel", "Khan", "Ahmed", "Hassan", "Ali", "Sharma", "Singh", "Kumar", "Reyes", "Cruz", "Ortiz", "Gomez", "Murray", "Ford", "Hamilton", "Graham", "Sullivan", "Wallace", "Woods", "Cole", "West", "Owens", "Harrison", "Fernandez", "Mcdonald", "Fisher", "Vasquez"];
+
 // Build a weighted region index so picks follow the weights deterministically.
 const WEIGHTED = [];
 REGIONS.forEach((r, i) => { for (let k = 0; k < r.w; k++) WEIGHTED.push(i); });
 
 const SIZE = 400;
+// DiceBear avatar styles — a mix so the crowd isn't all one look. The seed is the
+// identity id, which is unique per member, so EVERY avatar URL is unique.
+const AV_STYLES = ["avataaars", "adventurer", "micah", "personas", "lorelei", "notionists", "big-smile", "open-peeps"];
 let CACHE = null;
 
 function build() {
   const out = [];
+  const usedNames = new Set();
   for (let i = 0; i < SIZE; i++) {
     // Separate salted hashes per field so consecutive members differ a lot
     // (one weak hash of "member-<i>" barely changes between i and i+1).
     const region = REGIONS[WEIGHTED[hash("reg-" + i) % WEIGHTED.length]];
     const first = region.first[hash("first-" + i) % region.first.length];
-    const lastInit = String.fromCharCode(65 + (hash("last-" + i) % 26));
-    const female = hash("sex-" + i) % 2 === 0;
-    const portrait = hash("pic-" + i) % 100;
+    // Pick a surname; bump the index until the full name is unique.
+    let si = hash("last-" + i) % SURNAMES.length;
+    let name = `${first} ${SURNAMES[si]}`;
+    let guard = 0;
+    while (usedNames.has(name) && guard++ < SURNAMES.length) { si = (si + 1) % SURNAMES.length; name = `${first} ${SURNAMES[si]}`; }
+    usedNames.add(name);
+    const id = "m" + i;
+    const style = AV_STYLES[hash("sty-" + i) % AV_STYLES.length];
     out.push({
-      id: "m" + i,
-      name: `${first} ${lastInit}.`,
+      id,
+      name,
       country: region.country,
       flag: region.flag,
-      avatar: `https://randomuser.me/api/portraits/${female ? "women" : "men"}/${portrait}.jpg`,
+      // Unique seed per identity → a unique, deterministic avatar every time.
+      avatar: `https://api.dicebear.com/9.x/${style}/svg?seed=${id}-${hash("av-" + i)}`,
     });
   }
   return out;

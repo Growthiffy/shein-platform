@@ -26,12 +26,21 @@ export default function Personas() {
     try { const d = await api("/api/admin/personas/seed", { method: "POST", body: { target: 400 } }); setMsg(`Added ${d.added}. Total ${d.total}.`); await load(); }
     catch (e) { setMsg(e.message); }
   }
+  async function rebuild() {
+    if (!confirm("Rebuild ALL personas as 400 with unique names + unique avatars? This replaces every existing persona.")) return;
+    setMsg("Rebuilding…");
+    try { const d = await api("/api/admin/personas/seed", { method: "POST", body: { target: 400, reset: true } }); setMsg(`Rebuilt. Total ${d.total} (all unique).`); await load(); }
+    catch (e) { setMsg(e.message); }
+  }
 
   return (
     <Shell>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl text-gold">Personas <span className="text-cream/40 text-base">({items.length})</span></h1>
-        <button className="btn" onClick={topUp}>Generate 400 personas</button>
+        <div className="flex gap-2">
+          <button className="btn" onClick={topUp}>Generate 400 personas</button>
+          <button className="btn-ghost" onClick={rebuild}>Rebuild 400 unique</button>
+        </div>
       </div>
       <div className="grid grid-cols-3 gap-4">
         <div className="card overflow-x-auto col-span-2">
