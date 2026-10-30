@@ -200,6 +200,22 @@ router.post("/users/:id/reset-cycle", async (req, res) => {
   res.json({ user: u });
 });
 
+// Override a member's verification level (e.g. approve pending_premium → premium).
+const VERIFY_LEVELS = ["none", "basic", "standard", "pending_premium", "premium"];
+router.post("/users/:id/verify", async (req, res) => {
+  const { level, note } = req.body || {};
+  if (!VERIFY_LEVELS.includes(level)) return res.status(400).json({ error: "bad level" });
+  const u = await User.findById(req.params.id);
+  if (!u) return res.status(404).json({ error: "no user" });
+  if (!u.verification) u.verification = {};
+  u.verification.level = level;
+  u.verification.reviewedAt = new Date();
+  if (note) u.verification.reviewNote = note;
+  u.notifications.push({ text: `Your verification level is now ${level.replace(/_/g, " ")}.`, type: level === "premium" ? "success" : "info" });
+  await u.save();
+  res.json({ user: u });
+});
+
 router.post("/users/:id/adjust-balance", async (req, res) => {
   const { amount, note } = req.body || {};
   const u = await User.findById(req.params.id);

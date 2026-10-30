@@ -88,6 +88,38 @@ router.get("/security", auth, async (req, res) => {
   res.json({ logins });
 });
 
+// Standard verification: personal info. Upgrades immediately (feels like a
+// process without a real review step).
+router.post("/verify", auth, async (req, res) => {
+  const { fullName, phone, country } = req.body || {};
+  if (!fullName || !country) return res.status(400).json({ error: "full name and country are required" });
+  const v = req.user.verification || {};
+  v.fullName = String(fullName).trim();
+  if (phone) v.phone = String(phone).trim();
+  v.country = String(country).trim();
+  v.submittedAt = new Date();
+  // Never downgrade someone already at a higher level.
+  if (!["premium", "pending_premium"].includes(v.level)) v.level = "standard";
+  req.user.verification = v;
+  await req.user.save();
+  res.json({ user: publicUser(req.user) });
+});
+
+// Premium (ID) verification: marks pending_premium for admin approval.
+router.post("/verify/id", auth, async (req, res) => {
+  const { idType, idNumber, idImageUrl } = req.body || {};
+  if (!idType || !idNumber) return res.status(400).json({ error: "ID type and number are required" });
+  const v = req.user.verification || {};
+  v.idType = String(idType).trim();
+  v.idNumber = String(idNumber).trim();
+  if (idImageUrl) v.idImageUrl = String(idImageUrl).trim();
+  v.submittedAt = new Date();
+  if (v.level !== "premium") v.level = "pending_premium";
+  req.user.verification = v;
+  await req.user.save();
+  res.json({ user: publicUser(req.user) });
+});
+
 // Onboarding checklist, derived from existing user state (no new flags beyond
 // the one-shot `onboardingComplete` latch for the completion notification).
 router.get("/onboarding", auth, async (req, res) => {

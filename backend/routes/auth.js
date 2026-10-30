@@ -87,6 +87,9 @@ router.post("/verify", async (req, res) => {
   user.emailVerified = true;
   user.verifyCode = undefined;
   user.verifyExpires = undefined;
+  // Email verified → Basic verification level.
+  if (!user.verification) user.verification = {};
+  if (!user.verification.level || user.verification.level === "none") user.verification.level = "basic";
   // Signup reward lands in balance only on verify.
   if (!user.balance && user.rewardCredit) {
     user.balance = user.rewardCredit;
