@@ -9,8 +9,11 @@ export default function Users() {
   const [mentors, setMentors] = useState([]);
   const [sel, setSel] = useState(null);
   const [q, setQ] = useState("");
+  const [logins, setLogins] = useState([]);
   async function load() { const d = await api("/api/admin/users"); setItems(d.items); if (sel) setSel(d.items.find(u => u._id === sel._id) || null); }
   useEffect(() => { load(); api("/api/admin/mentors").then(d => setMentors(d.items)).catch(() => {}); }, []);
+
+  function select(u) { setSel(u); setLogins([]); api(`/api/admin/users/${u._id}/logins`).then(d => setLogins(d.items)).catch(() => {}); }
 
   async function save(patch) {
     await api(`/api/admin/users/${sel._id}`, { method: "PATCH", body: patch });
@@ -58,7 +61,7 @@ export default function Users() {
                 if (!s) return true;
                 return (u.email || "").toLowerCase().includes(s) || (u.username || "").toLowerCase().includes(s) || String(u.accountNumber || "").includes(s);
               }).map(u => (
-                <tr key={u._id} className="cursor-pointer hover:bg-black/[0.03]" onClick={() => setSel(u)}>
+                <tr key={u._id} className="cursor-pointer hover:bg-black/[0.03]" onClick={() => select(u)}>
                   <td className="text-cream/50">{u.accountNumber ?? "—"}</td>
                   <td>{u.email}</td><td>{u.username || "-"}</td>
                   <td>${(u.balance ?? 0).toFixed(2)}</td>
@@ -132,6 +135,19 @@ export default function Users() {
               <label className="flex items-center gap-2 text-sm mt-2">
                 <input type="checkbox" checked={!!sel.emailVerified} onChange={e => save({ emailVerified: e.target.checked })} /> email verified
               </label>
+
+              <div className="pt-3 border-t border-line">
+                <div className="text-xs text-cream/60 mb-1">Login history</div>
+                <div className="max-h-48 overflow-y-auto divide-y divide-black/[0.06]">
+                  {logins.map(l => (
+                    <div key={l._id} className="py-1.5 text-xs">
+                      <div className="flex justify-between"><span className="text-cream">{l.ip || "unknown IP"}</span><span className="text-cream/40">{new Date(l.createdAt).toLocaleString()}</span></div>
+                      <div className="text-cream/40 truncate">{l.userAgent || ""}</div>
+                    </div>
+                  ))}
+                  {!logins.length && <div className="text-cream/40 text-xs py-2">No logins recorded.</div>}
+                </div>
+              </div>
             </div>
           )}
         </div>

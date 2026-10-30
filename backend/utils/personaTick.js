@@ -52,8 +52,8 @@ function sample(arr, k) {
 const GAP = {
   within:   () => rand(18 * S, 55 * S),   // between lines of a live exchange
   standalone: () => rand(60 * S, 180 * S),
-  afterScript: () => rand(90 * S, 300 * S),
-  quiet:    () => rand(4 * M, 12 * M),
+  afterScript: () => rand(60 * S, 180 * S),
+  quiet:    () => rand(2 * M, 5 * M),
   seed:     () => rand(10 * S, 40 * S),
 };
 
@@ -87,7 +87,7 @@ function plan(state, personas) {
 
   // Idle: start a new script / drop a standalone line / go quiet.
   const roll = Math.random();
-  if (roll < 0.5 && personas.length >= 2) {
+  if (roll < 0.65 && personas.length >= 2) {
     const sid = Math.floor(Math.random() * SCRIPTS.length);
     const sc = SCRIPTS[sid];
     const need = Math.max(2, Math.min(sc.speakers, personas.length));
@@ -98,7 +98,7 @@ function plan(state, personas) {
     const done = sc.lines.length <= 1;
     return { messages: [msg], update: { scriptId: done ? -1 : sid, scriptStep: done ? 0 : 1, speakers }, gapMs: done ? GAP.afterScript() : GAP.within() };
   }
-  if (roll < 0.72) {
+  if (roll < 0.9) {
     const sp = pick(personas);
     const text = Math.random() < 0.22 ? pick(AWAY) : pick(LINES);
     const msg = buildMsg(state.group, last, { name: sp.name, avatar: sp.avatar }, text, {});
@@ -114,9 +114,53 @@ async function currentTyping(group) {
   return rows.map(r => r.personaName);
 }
 
+// Populate a believable backlog the first time a group is quiet, so the room
+// looks alive immediately (independent of active hours / live pacing). Messages
+// are given staggered past timestamps across the last ~8 hours.
+async function seedBacklog(group) {
+  if (group !== "daily" && group !== "invest") return;
+  if (await ChatMessage.countDocuments({ group, authorType: "persona" }) >= 12) return;
+
+  const personas = await Persona.find({ active: true, group: { $in: [group, "both"] } });
+  if (personas.length < 2) return;
+
+  const now = Date.now();
+  let t = now - 8 * 3600 * 1000;
+  const docs = [];
+  while (docs.length < 24 && t < now - 60 * S) {
+    if (Math.random() < 0.55) {
+      const sc = SCRIPTS[Math.floor(Math.random() * SCRIPTS.length)];
+      const need = Math.max(2, Math.min(sc.speakers, personas.length));
+      const speakers = sample(personas, need).map(p => ({ name: p.name, avatar: p.avatar }));
+      let last = docs.length ? docs[docs.length - 1] : null;
+      for (const line of sc.lines) {
+        const sp = speakers[line.role % speakers.length];
+        const hasMention = line.mention && last;
+        docs.push(baseDoc(group, sp, (hasMention ? "@" + last.authorName + " " : "") + line.text, hasMention ? [last.authorName] : [], new Date(t)));
+        last = docs[docs.length - 1];
+        t += rand(20 * S, 150 * S);
+      }
+    } else {
+      const sp = pick(personas);
+      docs.push(baseDoc(group, { name: sp.name, avatar: sp.avatar }, pick(LINES), [], new Date(t)));
+      t += rand(90 * S, 300 * S);
+    }
+  }
+  if (docs.length) await ChatMessage.collection.insertMany(docs).catch(() => {});
+}
+
+function baseDoc(group, sp, text, mentions, at) {
+  return {
+    group, authorType: "persona", authorName: sp.name, authorAvatar: sp.avatar || null,
+    text, canReply: true, mentions: mentions || [], reactions: seedReactions(),
+    createdAt: at, updatedAt: at,
+  };
+}
+
 async function maybePost(group) {
   if (group !== "daily" && group !== "invest") return;
-  if (!(await withinActiveHours())) return; // personas "asleep" outside active hours
+  await seedBacklog(group).catch(() => {}); // one-time populate so the room is never empty
+  if (!(await withinActiveHours())) return; // live chatter only during active hours
 
   const personas = await Persona.find({ active: true, group: { $in: [group, "both"] } });
   if (!personas.length) return;
