@@ -305,12 +305,11 @@ async function maybePost(group) {
   await seedBacklog(group).catch(() => {}); // one-time populate so the room is never empty
   if (!(await withinActiveHours())) return; // live chatter only during active hours
 
-  // Hard mute: if a real admin/mentor is live in this room, personas go silent
-  // (no ambient chatter, no replies) so no one talks over a real human.
-  if (await humanPresent(group).catch(() => false)) return;
-
-  // Members come first: answer a waiting member before ambient chatter.
-  {
+  // Ambient persona chatter ALWAYS runs so the room never looks dead. Only the
+  // direct reply to a waiting member is suppressed while a real admin/mentor is
+  // present/typing (so the human answers them, not a persona).
+  const human = await humanPresent(group).catch(() => false);
+  if (!human) {
     const ps = await Persona.find({ active: true, group: { $in: [group, "both"] } });
     if (ps.length && await maybeReplyToUser(group, ps).catch(() => false)) return;
   }
