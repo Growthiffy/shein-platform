@@ -31,13 +31,20 @@ export default function Shell({ children }) {
   const p = usePathname();
   const r = useRouter();
   const [me, setMe] = useState(null);
-  const [isMentor, setIsMentor] = useState(false);
+  // Seed from a cached value so the "My Juniors" item doesn't flicker out on every
+  // navigation (Shell remounts per page) while /api/mentor-admin/me re-resolves.
+  const [isMentor, setIsMentor] = useState(() => {
+    try { return sessionStorage.getItem("shein_is_mentor") === "1"; } catch { return false; }
+  });
   useEffect(() => {
     if (!getToken()) { r.push("/"); return; }
     api("/api/me")
       .then(d => { if (!(d.user?.isAdmin || d.user?.role === "admin")) { setToken(null); r.push("/"); } else setMe(d.user); })
       .catch(() => { setToken(null); r.push("/"); });
-    api("/api/mentor-admin/me").then(d => setIsMentor(!!d.mentor)).catch(() => {});
+    api("/api/mentor-admin/me").then(d => {
+      const v = !!d.mentor; setIsMentor(v);
+      try { sessionStorage.setItem("shein_is_mentor", v ? "1" : "0"); } catch {}
+    }).catch(() => {});
   }, []);
 
   const full = !me || me.fullAccess !== false;
