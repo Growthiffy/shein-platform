@@ -214,6 +214,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     // --- mentor message raises a 'mentor' notification (not 'community') ---
     r = await req("POST", `/api/community/mentor:${mentorId}:${alice._id}`, { token, body: { text: "mentor, quick question" } });
     ok("member posts to own mentor room", r.status === 200);
+    await sleep(400); // notifyAdmins is fire-and-forget; let it land
     r = await req("GET", "/api/admin/notifications?limit=60", { token: ownerTok });
     ok("mentor-room message raises a 'mentor' notification", r.status === 200 && r.json.items.some(n => n.type === "mentor"));
 

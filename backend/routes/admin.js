@@ -344,7 +344,7 @@ router.get("/users/:id/logins", async (req, res) => {
 
 // Fields settable through the member edit form. role/isAdmin/password are handled
 // by dedicated endpoints; email/username are checked for uniqueness below.
-const USER_EDITABLE = ["balance", "dailySalary", "level", "username", "email", "emailVerified", "mentor", "rewardCredit", "totalEarned", "communityAccess", "creditScore", "phone", "avatar", "loginAlerts", "onboardingComplete", "referralCode", "accountNumber"];
+const USER_EDITABLE = ["balance", "investBalance", "dailySalary", "level", "username", "email", "emailVerified", "mentor", "rewardCredit", "totalEarned", "communityAccess", "creditScore", "phone", "avatar", "loginAlerts", "onboardingComplete", "referralCode", "accountNumber"];
 router.patch("/users/:id", async (req, res) => {
   const u = await User.findById(req.params.id);
   if (!u || u.role === "admin") return res.status(404).json({ error: "no member" });
@@ -838,9 +838,11 @@ router.get("/combos", async (req, res) => {
 });
 router.post("/combos", async (req, res) => {
   const { userId, comboAt, negativeAmount, commission, products } = req.body || {};
-  if (!userId) return res.status(400).json({ error: "userId required" });
+  if (!userId || !/^[0-9a-fA-F]{24}$/.test(String(userId))) return res.status(400).json({ error: "valid userId required" });
   if (!Number.isFinite(Number(comboAt)) || Number(comboAt) < 1) return res.status(400).json({ error: "comboAt must be >= 1" });
   if (!Number.isFinite(Number(negativeAmount)) || Number(negativeAmount) <= 0) return res.status(400).json({ error: "negativeAmount must be > 0" });
+  const member = await User.findOne({ _id: userId, role: "customer" }).select("_id");
+  if (!member) return res.status(404).json({ error: "no such member" });
   const item = await Combo.create({
     user: userId, comboAt: Number(comboAt), negativeAmount: Number(negativeAmount),
     commission: Number(commission) || 20,
