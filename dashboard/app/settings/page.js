@@ -10,6 +10,7 @@ const GROUPS = [
     { key: "minWithdrawalUsd", label: "Minimum withdrawal (USD)", type: "number" },
     { key: "investLockWeeks",  label: "Investment lock period (weeks)", type: "number" },
     { key: "personaChatIntervalMin", label: "Persona chat interval (min)", type: "number" },
+    { key: "analystCooldownSec", label: "Analyst cooldown between products (sec)", type: "number" },
   ]},
   { title: "Activity & stats", keys: [
     { key: "activityFeedEnabled", label: "Activity feed enabled", type: "boolean" },

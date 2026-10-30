@@ -7,6 +7,9 @@ const DEFAULTS = {
   investLockWeeks: 4,
   personaChatIntervalMin: 15,
 
+  // Analyst flow
+  analystCooldownSec: 45,
+
   // Activity feed + public stats
   activityFeedEnabled: true,
   platformMemberCount: 12847,
