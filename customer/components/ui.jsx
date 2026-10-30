@@ -1,6 +1,27 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Star } from "lucide-react";
+import { Star, Share2, Check } from "lucide-react";
+import { api } from "@/lib/api";
+
+// "Share to Community" — posts the member's real withdrawal/invest as a proof
+// card into the community feed (social flex). One-shot per mount.
+export function ShareProof({ txId, kind, group = "daily" }) {
+  const [state, setState] = useState("idle"); // idle | busy | done | error
+  async function share() {
+    setState("busy");
+    try {
+      await api(`/api/community/${group}/share-proof`, { method: "POST", body: { txId, kind } });
+      setState("done");
+    } catch { setState("error"); }
+  }
+  if (state === "done") return <div className="mt-3 flex items-center justify-center gap-1.5 text-emerald-500 text-sm"><Check size={15} /> Shared to community</div>;
+  return (
+    <button onClick={share} disabled={state === "busy"}
+      className="mt-3 w-full flex items-center justify-center gap-2 rounded-lg border border-gold/40 py-2 text-sm text-gold hover:bg-gold/10 transition disabled:opacity-50">
+      <Share2 size={15} /> {state === "busy" ? "Sharing…" : state === "error" ? "Try again" : "Share to Community"}
+    </button>
+  );
+}
 
 // Pulsing gray placeholder. Compose with width/height utility classes.
 export function Skeleton({ className = "" }) {

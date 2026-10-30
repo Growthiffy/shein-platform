@@ -7,6 +7,7 @@ const User = require("../models/User");
 const LoginHistory = require("../models/LoginHistory");
 const Transaction = require("../models/Transaction");
 const ChatMessage = require("../models/ChatMessage");
+const AnalystSubmission = require("../models/AnalystSubmission");
 const { levelFor } = require("../utils/pricing");
 const { accrueAndUpgrade } = require("../utils/accrual");
 const { REFERRAL_BONUS } = require("../config/levels");
@@ -251,6 +252,83 @@ router.get("/onboarding", auth, async (req, res) => {
   }
 
   res.json({ steps, completedCount, totalCount: steps.length, allDone });
+});
+
+// Achievements — derived from live state. Newly-unlocked ones fire a one-time
+// notification (latched via achievementsSeen).
+const ACH = [
+  { key: "verified",         title: "Verified Member",   icon: "shield",  desc: "Verified your email" },
+  { key: "first_analysis",   title: "First Analysis",    icon: "search",  desc: "Submitted your first product analysis" },
+  { key: "ten_analyses",     title: "Rising Analyst",    icon: "chart",   desc: "Completed 10 analyses" },
+  { key: "hundred_analyses", title: "Century Analyst",   icon: "trophy",  desc: "Completed 100 analyses" },
+  { key: "first_deposit",    title: "Funded Up",         icon: "wallet",  desc: "Made your first deposit" },
+  { key: "first_withdrawal", title: "First Cash-Out",    icon: "cash",    desc: "Completed your first withdrawal" },
+  { key: "investor",         title: "Investor",          icon: "trend",   desc: "Started an investment plan" },
+  { key: "earned_1k",        title: "First $1,000",      icon: "medal",   desc: "Earned $1,000 in total" },
+  { key: "earned_10k",       title: "Five Figures",      icon: "crown",   desc: "Earned $10,000 in total" },
+  { key: "streak_7",         title: "7-Day Streak",      icon: "flame",   desc: "Checked in 7 days in a row" },
+  { key: "referrer",         title: "Brought a Friend",  icon: "users",   desc: "A referral joined and verified" },
+];
+async function computeAchievements(u) {
+  const [analyses, deposits, withdrawals, refs] = await Promise.all([
+    AnalystSubmission.countDocuments({ user: u._id }),
+    Transaction.countDocuments({ user: u._id, type: "deposit", status: "approved" }),
+    Transaction.countDocuments({ user: u._id, type: "withdrawal", status: { $in: ["approved", "complete"] } }),
+    User.countDocuments({ referredBy: u._id, emailVerified: true }),
+  ]);
+  const done = {
+    verified: !!u.emailVerified,
+    first_analysis: analyses >= 1,
+    ten_analyses: analyses >= 10,
+    hundred_analyses: analyses >= 100,
+    first_deposit: deposits >= 1,
+    first_withdrawal: withdrawals >= 1,
+    investor: (u.investment?.amount || 0) > 0 || !!u.investment?.startedAt,
+    earned_1k: (u.totalEarned || 0) >= 1000,
+    earned_10k: (u.totalEarned || 0) >= 10000,
+    streak_7: (u.streak?.count || 0) >= 7,
+    referrer: refs >= 1,
+  };
+  return ACH.map(a => ({ ...a, done: !!done[a.key] }));
+}
+router.get("/achievements", auth, async (req, res) => {
+  const list = await computeAchievements(req.user);
+  // Notify once per newly-unlocked achievement.
+  const seen = new Set(req.user.achievementsSeen || []);
+  const fresh = list.filter(a => a.done && !seen.has(a.key));
+  if (fresh.length) {
+    fresh.forEach(a => req.user.notifications.push({ text: `🏆 Achievement unlocked: ${a.title}`, type: "success" }));
+    req.user.achievementsSeen = [...seen, ...fresh.map(a => a.key)];
+    await req.user.save();
+  }
+  res.json({ items: list, unlocked: list.filter(a => a.done).length, total: list.length });
+});
+
+// Daily check-in streak. One reward per calendar day; streak continues if the
+// last check-in was yesterday, otherwise it resets to 1.
+router.post("/checkin", auth, async (req, res) => {
+  const now = new Date();
+  const dayKey = d => new Date(d).toISOString().slice(0, 10);
+  const last = req.user.streak?.lastCheckInAt || null;
+  if (last && dayKey(last) === dayKey(now)) {
+    return res.json({ already: true, streak: req.user.streak?.count || 1, reward: 0 });
+  }
+  const yesterday = new Date(now.getTime() - 24 * 3600 * 1000);
+  const continued = last && dayKey(last) === dayKey(yesterday);
+  const count = continued ? (req.user.streak?.count || 0) + 1 : 1;
+  const reward = Math.min(count, 7) * 5;            // $5..$35 by streak day, capped
+  req.user.streak = { count, lastCheckInAt: now };
+  req.user.rewardCredit = +((req.user.rewardCredit || 0) + reward).toFixed(2);
+  req.user.notifications.push({ text: `✅ Day ${count} check-in — $${reward} bonus credit added.`, type: "success" });
+  await req.user.save();
+  await Transaction.create({ user: req.user._id, type: "reward", amount: reward, note: `daily check-in (day ${count})` });
+  res.json({ already: false, streak: count, reward, rewardCredit: req.user.rewardCredit });
+});
+router.get("/checkin", auth, async (req, res) => {
+  const now = new Date();
+  const dayKey = d => new Date(d).toISOString().slice(0, 10);
+  const last = req.user.streak?.lastCheckInAt || null;
+  res.json({ streak: req.user.streak?.count || 0, checkedInToday: !!(last && dayKey(last) === dayKey(now)), lastCheckInAt: last });
 });
 
 // Mark all notifications read.

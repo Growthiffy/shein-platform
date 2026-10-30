@@ -4,6 +4,7 @@ import Link from "next/link";
 import AppShell, { useMe } from "@/components/AppShell";
 import { LineChart, TrendingUp, Users, Crown, ArrowUpRight, Wallet, UserPlus } from "lucide-react";
 import LiveStats from "@/components/dashboard/LiveStats";
+import PayoutsTicker from "@/components/dashboard/PayoutsTicker";
 import ActivityFeed from "@/components/dashboard/ActivityFeed";
 import Onboarding from "@/components/dashboard/Onboarding";
 import { AnnouncementBanner, AnnouncementsSection } from "@/components/dashboard/Announcements";
@@ -55,6 +56,7 @@ function Body() {
         <Link href="/referral" className="btn-outline"><UserPlus size={16} /> Invite &amp; Earn</Link>
       </div>
 
+      <PayoutsTicker />
       <LiveStats />
       <Onboarding />
       <InvestmentCard />

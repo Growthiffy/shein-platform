@@ -5,6 +5,7 @@ const { maybePost, currentTyping } = require("../utils/personaTick");
 const { maybeMentorReply } = require("../utils/mentorTick");
 const { typingNames } = require("../utils/presence");
 const { fillGap } = require("../utils/backfill");
+const Transaction = require("../models/Transaction");
 
 // Resolve the access gate a group maps to. daily/invest map to their own flag;
 // any mentor:<id> room maps to mentorRooms. Unknown groups are allowed.
@@ -104,6 +105,47 @@ router.post("/:group", auth, async (req, res) => {
     group, user: req.user._id,
     authorType: "user", authorName: req.user.username || req.user.email.split("@")[0],
     text, replyTo, mentions,
+  });
+  res.json({ msg });
+});
+
+// Share a REAL transaction of your own as a payment-proof post (a receipt card
+// members can flex in the community). Only daily/invest, only your own tx.
+const KIND_TYPES = { withdrawal: ["withdrawal"], deposit: ["deposit"], invest: ["invest_lock"] };
+const proofMoney = n => "$" + Number(Math.round(n)).toLocaleString("en-US");
+router.post("/:group/share-proof", auth, async (req, res) => {
+  const group = req.params.group;
+  if (group !== "daily" && group !== "invest") return res.status(400).json({ error: "can only share to daily or invest" });
+  if (!allowed(req.user, group)) return res.status(403).json({ error: "no access to this group" });
+  const vErr = verificationError(req.user, group);
+  if (vErr) return res.status(403).json(vErr);
+
+  const { txId, kind: rawKind } = req.body || {};
+  let tx = null;
+  if (txId) tx = await Transaction.findOne({ _id: txId, user: req.user._id }).catch(() => null);
+  else {
+    const types = KIND_TYPES[rawKind];
+    if (!types) return res.status(400).json({ error: "txId or a valid kind required" });
+    tx = await Transaction.findOne({ user: req.user._id, type: { $in: types } }).sort({ createdAt: -1 });
+  }
+  if (!tx) return res.status(404).json({ error: "no matching transaction to share" });
+
+  const kind = tx.type === "invest_lock" ? "invest" : tx.type === "deposit" ? "deposit" : "withdrawal";
+  const hex = n => { let s = ""; for (let i = 0; i < n; i++) s += "0123456789abcdef"[Math.floor(Math.random() * 16)]; return s; };
+  const proof = {
+    kind, amount: Math.round(tx.amount), chain: tx.chain || "TRC20",
+    txid: tx.txHash || hex(52), status: "Completed", at: tx.createdAt || new Date(),
+  };
+  if (kind === "invest") proof.tier = (tx.note || "").replace(/^Tier\s*/i, "") || undefined;
+
+  const name = req.user.username || req.user.email.split("@")[0];
+  const customText = String(req.body?.text || "").replace(/\r\n/g, "\n").trim().slice(0, 300);
+  const verb = kind === "withdrawal" ? "just withdrew" : kind === "deposit" ? "just deposited" : "just invested";
+  const text = customText || `${verb} ${proofMoney(proof.amount)} 🎉`;
+
+  const msg = await ChatMessage.create({
+    group, user: req.user._id, authorType: "user", authorName: name,
+    authorAvatar: req.user.avatar, text, canReply: true, proof,
   });
   res.json({ msg });
 });

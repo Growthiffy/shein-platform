@@ -183,6 +183,26 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     r = await req("GET", "/api/community/daily", { token });
     ok("human presence surfaces in typing", Array.isArray(r.json.typing));
 
+    // ================= GAMIFICATION / SOCIAL =================
+    r = await req("GET", "/api/stats/payouts-ticker", { token });
+    ok("payouts ticker returns items with text", r.status === 200 && r.json.items?.length > 5 && !!r.json.items[0].text);
+    r = await req("GET", "/api/stats/leaderboard", { token });
+    ok("leaderboard returns ranked items + your rank", r.status === 200 && r.json.items?.[0]?.rank === 1 && typeof r.json.you?.rank === "number");
+
+    r = await req("GET", "/api/me/achievements", { token });
+    ok("achievements list derived (verified unlocked)", r.status === 200 && r.json.items?.find(a => a.key === "verified")?.done === true);
+
+    r = await req("POST", "/api/me/checkin", { token });
+    ok("checkin day 1 credits a reward", r.status === 200 && r.json.already === false && r.json.reward > 0 && r.json.streak === 1);
+    r = await req("POST", "/api/me/checkin", { token });
+    ok("second checkin same day -> already", r.status === 200 && r.json.already === true);
+
+    // share a real transaction as a community proof
+    r = await req("POST", "/api/community/daily/share-proof", { token, body: { kind: "withdrawal" } });
+    ok("member shares real withdrawal proof -> user post with proof", r.status === 200 && r.json.msg?.authorType === "user" && r.json.msg?.proof?.kind === "withdrawal");
+    r = await req("POST", "/api/community/daily/share-proof", { token, body: { kind: "invest" } });
+    ok("member shares real invest proof", r.status === 200 && r.json.msg?.proof?.kind === "invest");
+
   } catch (e) {
     ok("suite ran without throwing", false, e.message + "\n" + e.stack);
   }

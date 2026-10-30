@@ -69,6 +69,17 @@ const UserSchema = new mongoose.Schema({
   // Onboarding: latch so the "all done" notification fires only once.
   onboardingComplete: { type: Boolean, default: false },
 
+  // Daily check-in streak (gamification). count = consecutive days; lastCheckInAt
+  // = when the last check-in landed (used to decide continue/reset/already-today).
+  streak: {
+    count:        { type: Number, default: 0 },
+    lastCheckInAt:{ type: Date, default: null },
+  },
+  // Achievements the member has already been notified about (latch, so each
+  // unlock notification fires only once). The list of achievements themselves is
+  // derived from live state in /api/me/achievements.
+  achievementsSeen: [{ type: String }],
+
   analyst: {
     cycleCount:   { type: Number, default: 0 },     // products submitted in current cycle (0-27)
     pendingProduct: { type: mongoose.Schema.Types.ObjectId, ref: "Product", default: null },

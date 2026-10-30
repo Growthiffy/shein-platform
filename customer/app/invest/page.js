@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import AppShell, { useMe } from "@/components/AppShell";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/Toast";
-import { EmptyState } from "@/components/ui";
+import { EmptyState, ShareProof } from "@/components/ui";
 import { TrendingUp } from "lucide-react";
 
 export default function InvestPage() { return <AppShell><Body /></AppShell>; }
@@ -96,6 +96,7 @@ function Body() {
                 <Row k="Status" v={summary.unlocked ? "Unlocked" : "Locked"} />
               </div>
               {err && <div className="text-red-500 text-sm mt-2">{err}</div>}
+              <ShareProof kind="invest" group="invest" />
               <button className="btn-gold mt-4 w-full disabled:opacity-40" onClick={release} disabled={!summary.unlocked}>
                 {summary.unlocked ? "RELEASE PRINCIPAL" : "LOCKED — RELEASE AFTER LOCK"}
               </button>
