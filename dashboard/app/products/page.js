@@ -8,6 +8,7 @@ const CATEGORIES = ["fashion", "electronics", "home", "beauty", "accessories", "
 
 export default function Products() {
   const [items, setItems] = useState([]);
+  const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ brand: BRANDS[0], name: PRODUCT_NAMES[0], originalPrice: "", image: "", isLatest: false, category: "fashion", marketBrief: "" });
   const [editId, setEditId] = useState(null);
   const [edit, setEdit] = useState({});
@@ -20,6 +21,7 @@ export default function Products() {
   async function create() {
     await api("/api/admin/products", { method: "POST", body: productPayload(form) });
     setForm({ brand: BRANDS[0], name: PRODUCT_NAMES[0], originalPrice: "", image: "", isLatest: false, category: "fashion", marketBrief: "" });
+    setShowAdd(false);
     await load();
   }
   async function toggle(p) { await api(`/api/admin/products/${p._id}`, { method: "PATCH", body: { active: !p.active } }); await load(); }
@@ -43,11 +45,14 @@ export default function Products() {
 
   return (
     <Shell>
-      <h1 className="text-2xl text-gold mb-4">Products</h1>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h1 className="text-2xl text-gold">Products</h1>
+        <button className="btn" disabled={busy} aria-expanded={showAdd} aria-controls="add-product-form" onClick={() => { setShowAdd(true); setEditId(null); setError(""); }}>Add new product</button>
+      </div>
       {error && <p role="alert" className="mb-4 text-red-400">{error}</p>}
       <datalist id="product-brands">{BRANDS.map(b => <option key={b} value={b} />)}</datalist>
       <datalist id="product-names">{PRODUCT_NAMES.map(n => <option key={n} value={n} />)}</datalist>
-      <fieldset disabled={busy} className="card p-4 mb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2 items-end">
+      {showAdd && <fieldset id="add-product-form" disabled={busy} className="card p-4 mb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2 items-end">
         <L label="Brand">
           <input list="product-brands" value={form.brand} onChange={e => setForm({ ...form, brand: e.target.value })} className="w-full" placeholder="Choose or enter any brand" />
         </L>
@@ -65,8 +70,11 @@ export default function Products() {
         <L label="Market brief (optional)" className="sm:col-span-2 lg:col-span-5">
           <input value={form.marketBrief} onChange={e => setForm({ ...form, marketBrief: e.target.value })} className="w-full" placeholder="Leave blank to auto-generate" />
         </L>
-        <button className="btn" onClick={() => run(create)}>{busy ? "Saving…" : "Add"}</button>
-      </fieldset>
+        <div className="flex gap-2">
+          <button className="btn" onClick={() => run(create)}>{busy ? "Saving…" : "Add"}</button>
+          <button className="btn-ghost" onClick={() => { setShowAdd(false); setError(""); }}>Cancel</button>
+        </div>
+      </fieldset>}
       <div className="card overflow-x-auto">
         <table>
           <thead><tr className="text-cream/60"><th>Img</th><th>Brand</th><th>Name</th><th>Price</th><th>Category</th><th>Latest</th><th>Active</th><th></th></tr></thead>
