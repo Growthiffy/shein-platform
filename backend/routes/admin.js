@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 const { auth, admin } = require("../middleware/auth");
 const User = require("../models/User");
 const Product = require("../models/Product");
+const Counter = require("../models/Counter");
 const Transaction = require("../models/Transaction");
 const AnalystSubmission = require("../models/AnalystSubmission");
 const DepositWallet = require("../models/DepositWallet");
@@ -285,12 +286,12 @@ router.get("/users", async (req, res) => {
     filter.$or = [{ username: rx }, { email: rx }];
     if (/^\d+$/.test(q)) filter.$or.push({ accountNumber: Number(q) });
   }
-  res.json({ items: await User.find(filter).sort({ createdAt: -1 }).limit(500) });
+  res.json({ items: await User.find(filter).select("-passwordHash").sort({ createdAt: -1 }).limit(500) });
 });
 
 // Full detail for one member: profile + related records (for the admin member view).
 router.get("/users/:id", async (req, res) => {
-  const u = await User.findById(req.params.id);
+  const u = await User.findById(req.params.id).select("-passwordHash");
   if (!u) return res.status(404).json({ error: "no user" });
   const [txs, submissions, logins, referrals, supportCount] = await Promise.all([
     Transaction.find({ user: u._id }).sort({ createdAt: -1 }).limit(50),
@@ -310,11 +311,20 @@ router.get("/users/:id/logins", async (req, res) => {
 
 // Fields settable through the member edit form. role/isAdmin/password are handled
 // by dedicated endpoints; email/username are checked for uniqueness below.
-const USER_EDITABLE = ["balance", "dailySalary", "level", "username", "email", "emailVerified", "mentor", "rewardCredit", "totalEarned", "communityAccess", "creditScore", "phone", "avatar", "loginAlerts", "onboardingComplete", "referralCode"];
+const USER_EDITABLE = ["balance", "dailySalary", "level", "username", "email", "emailVerified", "mentor", "rewardCredit", "totalEarned", "communityAccess", "creditScore", "phone", "avatar", "loginAlerts", "onboardingComplete", "referralCode", "accountNumber"];
 router.patch("/users/:id", async (req, res) => {
   const u = await User.findById(req.params.id);
   if (!u || u.role === "admin") return res.status(404).json({ error: "no member" });
   const b = req.body || {};
+  if ("accountNumber" in b) {
+    if (!(["string", "number"].includes(typeof b.accountNumber)) || !/^\d+$/.test(String(b.accountNumber).trim()) || !Number.isSafeInteger(Number(b.accountNumber)) || Number(b.accountNumber) < 1 || Number(b.accountNumber) >= Number.MAX_SAFE_INTEGER - 10000) {
+      return res.status(400).json({ error: "Member ID must be a positive whole number." });
+    }
+    b.accountNumber = Number(b.accountNumber);
+    if (await User.exists({ accountNumber: b.accountNumber, _id: { $ne: u._id } })) return res.status(409).json({ error: "Member ID already in use." });
+    // Reserve higher IDs so future automatic assignments do not reuse them.
+    await Counter.updateOne({ key: "accountNumber" }, { $max: { seq: Math.max(0, b.accountNumber - 10000) } }, { upsert: true });
+  }
   // Uniqueness checks for identity fields.
   if (typeof b.email === "string" && b.email.trim() && b.email.trim().toLowerCase() !== (u.email || "")) {
     const e = b.email.trim().toLowerCase();
@@ -326,8 +336,14 @@ router.patch("/users/:id", async (req, res) => {
     b.username = b.username.trim();
   }
   for (const k of USER_EDITABLE) if (k in b) u[k] = b[k];
-  await u.save();
-  res.json({ user: u });
+  try { await u.save(); }
+  catch (e) {
+    if (e.code === 11000) return res.status(409).json({ error: "Member ID, email or username already in use." });
+    throw e;
+  }
+  const user = u.toObject();
+  delete user.passwordHash;
+  res.json({ user });
 });
 
 // Set a new login password for a member (admin reset). Invalidates old sessions.

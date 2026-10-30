@@ -230,6 +230,23 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     r = await req("GET", "/api/me", { token: asToken });
     ok("login-as token acts as the member", r.status === 200 && r.json.user?.email === "victim@test.com");
 
+    // Member numbers are editable, validated, unique, and reserved for future signups.
+    r = await req("PATCH", `/api/admin/users/${victim._id}`, { token: ownerTok, body: { accountNumber: 45678 } });
+    ok("admin changes displayed member ID", r.status === 200 && r.json.user?.accountNumber === 45678);
+    ok("member update omits password hash", !r.json.user?.passwordHash);
+    for (const accountNumber of [0, -1, 1.5, "", null, true, {}, "abc"]) {
+      r = await req("PATCH", `/api/admin/users/${victim._id}`, { token: ownerTok, body: { accountNumber } });
+      ok(`invalid member ID rejected: ${JSON.stringify(accountNumber)}`, r.status === 400);
+    }
+    r = await req("PATCH", `/api/admin/users/${alice._id}`, { token: ownerTok, body: { accountNumber: 45678 } });
+    ok("duplicate member ID rejected", r.status === 409);
+    const Counter = require("../models/Counter");
+    ok("automatic member IDs advance past manually reserved IDs", await Counter.next("accountNumber") > 45678);
+    r = await req("GET", `/api/admin/users/${victim._id}`, { token: ownerTok });
+    ok("member detail omits password hash", r.status === 200 && !r.json.user?.passwordHash);
+    r = await req("GET", "/api/admin/users", { token: ownerTok });
+    ok("member list omits password hashes", r.status === 200 && r.json.items.every(u => !u.passwordHash));
+
     // password reset invalidates old sessions
     r = await req("POST", `/api/admin/users/${victim._id}/password`, { token: ownerTok, body: { password: "newpass1234" } });
     ok("admin resets member password", r.status === 200);

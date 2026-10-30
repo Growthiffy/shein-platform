@@ -134,4 +134,7 @@ UserSchema.pre("save", function (next) {
   next();
 });
 
+// Keep displayed member numbers unique while allowing unverified users without one.
+UserSchema.index({ accountNumber: 1 }, { unique: true, name: "unique_member_account_number", partialFilterExpression: { accountNumber: { $type: "number" } } });
+
 module.exports = mongoose.model("User", UserSchema);

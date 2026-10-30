@@ -41,7 +41,7 @@ export default function Users() {
   // Generic helpers ---------------------------------------------------------
   async function save(patch) {
     setNote("");
-    try { await api(`/api/admin/users/${sel._id}`, { method: "PATCH", body: patch }); await refresh(); setNote("saved ✓"); }
+    try { const r = await api(`/api/admin/users/${sel._id}`, { method: "PATCH", body: patch }); await refresh(); setSel(r.user); setNote("saved ✓"); }
     catch (e) { setNote(e.message); }
   }
   async function act(path, body, confirmMsg, okMsg) {
@@ -57,7 +57,7 @@ export default function Users() {
   const adjustNext = (p) => act("/adjust-next-product", { profitPct: p }, null, `next product +${p}%`);
   const setVerify = (level) => act("/verification", { level }, null, "verification set");
   const sendNotify = () => { const text = prompt("Notification to this member:"); if (!text?.trim()) return; act("/notify", { text: text.trim(), type: "info" }, null, "notification sent"); };
-  const resetPassword = () => { const pw = prompt("New password (min 8 chars):"); if (!pw) return; if (pw.length < 8) { setNote("password must be at least 8 characters"); return; } act("/password", { password: pw }, "Reset this member's password? It signs them out everywhere.", "password reset"); };
+
   const forceLogout = () => act("/force-logout", {}, "Sign this member out of all devices?", "signed out everywhere");
   const disable2FA = () => act("/2fa-disable", {}, "Disable this member's 2FA?", "2FA disabled");
   const clearNotifs = () => act("/notifications/clear", {}, "Clear all notifications for this member?", "notifications cleared");
@@ -152,6 +152,8 @@ export default function Users() {
               {note && <div className="text-xs text-cream/70 bg-black/[0.04] rounded px-2 py-1">{note}</div>}
 
               {/* identity + money */}
+              <NumField key={`member-id-${u._id}`} label="Member ID" value={u.accountNumber} onSave={v => save({ accountNumber: v })} />
+              <PasswordReset key={`password-${u._id}`} onReset={password => act("/password", { password }, "Reset this member's password? It signs them out everywhere.", "password reset")} />
               <TextField label="Username" value={u.username || ""} onSave={v => save({ username: v })} />
               <TextField label="Email" value={u.email || ""} onSave={v => save({ email: v })} />
               <TextField label="Phone" value={u.phone || ""} onSave={v => save({ phone: v })} />
@@ -221,7 +223,6 @@ export default function Users() {
                 <button className="btn-ghost text-xs" onClick={adjustBalance}>Adjust Balance</button>
                 <button className="btn-ghost text-xs" onClick={sendNotify}>Notify</button>
                 <button className="btn-ghost text-xs" onClick={clearNotifs}>Clear Notifs</button>
-                <button className="btn-ghost text-xs" onClick={resetPassword}>Reset Password</button>
                 <button className="btn-ghost text-xs" onClick={forceLogout}>Force Logout</button>
                 <button className="btn-ghost text-xs" onClick={disable2FA}>Disable 2FA</button>
                 <button className="btn-ghost text-xs" onClick={loginAs}>Login as</button>
@@ -304,7 +305,7 @@ function NumField({ label, value, onSave }) {
   return (
     <div className="flex items-center gap-2">
       <span className="text-xs text-cream/60 w-28">{label}</span>
-      <input type="number" value={v} onChange={e => setV(e.target.value)} className="flex-1" />
+      <input aria-label={label} type="number" value={v} onChange={e => setV(e.target.value)} className="flex-1" />
       <button className="btn" onClick={() => onSave(v)}>Save</button>
     </div>
   );
@@ -331,5 +332,31 @@ function SelectField({ label, value, options, onSave }) {
       </select>
       <button className="btn" onClick={() => onSave(v)}>Save</button>
     </div>
+  );
+}
+
+function PasswordReset({ onReset }) {
+  const [password, setPassword] = useState("");
+  const [visible, setVisible] = useState(false);
+  const [busy, setBusy] = useState(false);
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const result = await onReset(password);
+      if (result?.ok) { setPassword(""); setVisible(false); }
+    } finally { setBusy(false); }
+  }
+  return (
+    <form onSubmit={submit} className="rounded-lg border border-line p-2 space-y-2">
+      <p className="text-xs text-cream/60">Existing passwords are hidden. Set a new password below.</p>
+      <label className="block text-xs text-cream/60">New password
+        <input type={visible ? "text" : "password"} autoComplete="new-password" required minLength={8} value={password} onChange={e => setPassword(e.target.value)} disabled={busy} className="w-full mt-1" />
+      </label>
+      <div className="flex gap-2">
+        <button type="button" className="btn-ghost text-xs" aria-pressed={visible} disabled={busy} onClick={() => setVisible(!visible)}>{visible ? "Hide" : "Show"}</button>
+        <button type="submit" className="btn text-xs" disabled={busy}>{busy ? "Saving…" : "Reset Password"}</button>
+      </div>
+    </form>
   );
 }
