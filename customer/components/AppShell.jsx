@@ -6,6 +6,7 @@ import { api, getToken, setToken } from "@/lib/api";
 import { LayoutGrid, LineChart, TrendingUp, Users, User, Bell, LogOut, Wallet, Trophy } from "lucide-react";
 import Footer from "@/components/Footer";
 import ToastProvider, { useToast } from "@/components/Toast";
+import ChatWidget from "@/components/ChatWidget";
 
 const MeCtx = createContext(null);
 export function useMe() { return useContext(MeCtx); }
@@ -39,10 +40,15 @@ export default function AppShell({ children }) {
   const [me, setMe] = useState(null);
   const [ready, setReady] = useState(false);
   const [bell, setBell] = useState(false);
+  const [maint, setMaint] = useState(null);
 
   async function refresh() {
-    try { const d = await api("/api/me"); setMe(d.user); return d.user; }
-    catch { setToken(null); r.push("/auth"); }
+    try { const d = await api("/api/me"); setMaint(null); setMe(d.user); return d.user; }
+    catch (e) {
+      // Maintenance mode: keep the session, show a maintenance screen (don't log out).
+      if (e?.status === 503 || e?.data?.maintenance) { setMaint(e.data?.error || e.message || "Under maintenance"); return; }
+      setToken(null); r.push("/auth");
+    }
   }
   useEffect(() => {
     if (!getToken()) { r.push("/auth"); return; }
@@ -62,6 +68,16 @@ export default function AppShell({ children }) {
     setMe(m => ({ ...m, notifications: [] }));
   }
 
+  if (maint) return (
+    <div className="min-h-screen bg-ink text-cream grid place-items-center p-6">
+      <div className="card max-w-md w-full p-8 text-center">
+        <div className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-full bg-gold/10 text-gold text-2xl">🛠️</div>
+        <h1 className="font-display text-2xl text-gold">Under maintenance</h1>
+        <p className="text-cream/65 mt-2">{maint}</p>
+        <button className="btn-outline mt-5" onClick={() => { setReady(false); refresh().finally(() => setReady(true)); }}>Retry</button>
+      </div>
+    </div>
+  );
   if (!ready || !me) return (
     <div className="min-h-screen bg-ink text-cream">
       <div className="h-16 border-b border-gold/10 flex items-center px-4 md:px-6">
@@ -154,6 +170,7 @@ export default function AppShell({ children }) {
         {children}
 
         <Footer />
+        <ChatWidget />
 
         {/* mobile bottom nav */}
         <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-gold/15 bg-ink/95 backdrop-blur">

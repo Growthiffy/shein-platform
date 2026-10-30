@@ -3,13 +3,14 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { api, setToken, getToken } from "@/lib/api";
 import { useEffect, useState } from "react";
-import { LayoutDashboard, Users, Package, ArrowLeftRight, Wallet, GraduationCap, MessagesSquare, Bot, Settings, History, LifeBuoy, UserPlus, LogOut, ShieldCheck, Megaphone, UsersRound } from "lucide-react";
+import { LayoutDashboard, Users, Package, ArrowLeftRight, Wallet, GraduationCap, MessagesSquare, Bot, Settings, History, LifeBuoy, UserPlus, LogOut, ShieldCheck, Megaphone, UsersRound, Layers, FileText, Inbox } from "lucide-react";
 
 const NAV = [
   { href: "/overview", label: "Overview", icon: LayoutDashboard, perm: null },
   { href: "/my-juniors", label: "My Juniors", icon: UsersRound, perm: null, mentorOnly: true },
   { href: "/users", label: "Members", icon: Users, perm: "members" },
   { href: "/products", label: "Products", icon: Package, perm: "products" },
+  { href: "/combos", label: "Combos", icon: Layers, perm: "members" },
   { href: "/tx", label: "Transactions", icon: ArrowLeftRight, perm: "transactions" },
   { href: "/wallets", label: "Deposit Wallets", icon: Wallet, perm: "wallets" },
   { href: "/mentors", label: "Mentors", icon: GraduationCap, perm: "mentors" },
@@ -17,6 +18,8 @@ const NAV = [
   { href: "/announcements", label: "Announcements", icon: Megaphone, perm: "announcements" },
   { href: "/personas", label: "Personas", icon: Bot, perm: "personas" },
   { href: "/support", label: "Support", icon: LifeBuoy, perm: "support" },
+  { href: "/inbox", label: "Inbox", icon: Inbox, perm: "support" },
+  { href: "/content", label: "Content", icon: FileText, perm: "settings" },
   { href: "/referrals", label: "Referrals", icon: UserPlus, perm: "referrals" },
   { href: "/login-history", label: "Login History", icon: History, perm: "login_history" },
   { href: "/admins", label: "Admins", icon: ShieldCheck, perm: "admins", ownerOnly: true },

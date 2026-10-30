@@ -38,6 +38,11 @@ const GROUPS = [
     { key: "supportAutoReplyEnabled", label: "Support auto-reply enabled", type: "boolean" },
     { key: "supportAutoReplyText", label: "Support auto-reply text ({ticketNumber})", type: "textarea" },
   ]},
+  { title: "Operations", keys: [
+    { key: "dailyAnalysisLimit", label: "Daily analysis limit per member", type: "number" },
+    { key: "maintenanceMode", label: "Maintenance mode (members blocked)", type: "boolean" },
+    { key: "maintenanceMessage", label: "Maintenance message", type: "textarea" },
+  ]},
 ];
 
 const META = Object.fromEntries(GROUPS.flatMap(g => g.keys.map(k => [k.key, k])));

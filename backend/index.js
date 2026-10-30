@@ -60,14 +60,15 @@ app.use("/api/stats",    require("./routes/stats"));
 app.use("/api/activity", require("./routes/activity"));
 app.use("/api/announcements", require("./routes/announcements"));
 app.use("/api/auth",     require("./routes/auth"));
-app.use("/api/me",       require("./routes/me"));
-app.use("/api/analyst",  require("./routes/analyst"));
-app.use("/api/wallet",   require("./routes/wallet"));
-app.use("/api/invest",   require("./routes/invest"));
-app.use("/api/mentor",   require("./routes/mentor"));
-app.use("/api/community",require("./routes/community"));
+const { maintenance } = require("./middleware/maintenance");
+app.use("/api/me",       maintenance, require("./routes/me"));
+app.use("/api/analyst",  maintenance, require("./routes/analyst"));
+app.use("/api/wallet",   maintenance, require("./routes/wallet"));
+app.use("/api/invest",   maintenance, require("./routes/invest"));
+app.use("/api/mentor",   maintenance, require("./routes/mentor"));
+app.use("/api/community",maintenance, require("./routes/community"));
 app.use("/api/mentor-admin", require("./routes/mentorAdmin"));
-app.use("/api/support",  require("./routes/support"));
+app.use("/api/support",  maintenance, require("./routes/support"));
 app.use("/api/admin",    require("./routes/admin"));
 
 app.use((err, req, res, next) => {

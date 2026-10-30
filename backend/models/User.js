@@ -86,6 +86,10 @@ const UserSchema = new mongoose.Schema({
     pendingProfitPct: { type: Number, default: null },         // snapshot of profit % when product first shown (price stability)
     pendingAdjustedProfitPct: { type: Number, default: null }, // admin-set profit adjustment for next product
     lastSubmitAt: { type: Date, default: null },               // enforces the between-product cooldown
+    // Daily order limit tracking (resets when the calendar day changes).
+    ordersToday:     { type: Number, default: 0 },
+    todaysCommission:{ type: Number, default: 0 },
+    lastOrderDay:    { type: String, default: null },          // YYYY-MM-DD
   },
 
   // Community access gates (admin-controlled). Default all true so existing

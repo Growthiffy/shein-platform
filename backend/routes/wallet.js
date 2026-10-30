@@ -4,6 +4,8 @@ const DepositWallet = require("../models/DepositWallet");
 const Transaction = require("../models/Transaction");
 const User = require("../models/User");
 const { getSetting, getSettings } = require("../utils/settings");
+const { levelFor } = require("../utils/pricing");
+const { logChange } = require("../utils/ledger");
 
 // Public (to signed-in members) whitelist of wallet limits. Never exposes the
 // raw Setting table — only the fields the customer app needs to render.
@@ -75,6 +77,11 @@ router.post("/withdraw", auth, async (req, res) => {
   const s = await getSettings(["minWithdrawalUsd", "withdrawalFeeUsd", "withdrawalProcessingHours", "verificationWithdrawalThreshold"]);
   const minWithdrawalUsd = Number(s.minWithdrawalUsd);
   if (amt < minWithdrawalUsd) return res.status(400).json({ error: `below minimum withdrawal of $${minWithdrawalUsd}` });
+  // Per-tier withdrawal cap.
+  const lvl = levelFor(req.user.balance);
+  if (lvl.withdrawLimit != null && amt > lvl.withdrawLimit) {
+    return res.status(400).json({ error: `Your ${lvl.name} tier allows up to $${lvl.withdrawLimit.toLocaleString()} per withdrawal. Reach a higher tier to withdraw more.` });
+  }
 
   // Withdrawals may only go to a saved payout wallet. A brand-new address is not
   // accepted here — it must be added first and clear a 24h security hold — so a
@@ -125,6 +132,7 @@ router.post("/withdraw", auth, async (req, res) => {
     throw e;
   }
   const balance = +Number(updated.balance).toFixed(2);
+  await logChange(req.user._id, +(balance + amt).toFixed(2), -amt, balance, "Withdrawal (hold)");
   res.json({
     tx, balance,
     breakdown: { amount: amt, networkFee: fee, youReceive: +(amt - fee).toFixed(2), estimatedCompletion },

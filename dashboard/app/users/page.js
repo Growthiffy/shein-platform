@@ -11,6 +11,7 @@ export default function Users() {
   const [mentors, setMentors] = useState([]);
   const [sel, setSel] = useState(null);     // list row
   const [detail, setDetail] = useState(null); // full detail from GET /users/:id
+  const [changes, setChanges] = useState([]); // balance audit ledger
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("all");
   const [note, setNote] = useState("");
@@ -28,8 +29,9 @@ export default function Users() {
   useEffect(() => { load(); api("/api/admin/mentors").then(d => setMentors(d.items)).catch(() => {}); }, [status]);
 
   async function select(u) {
-    setSel(u); setDetail(null); setNote("");
+    setSel(u); setDetail(null); setChanges([]); setNote("");
     try { setDetail(await api(`/api/admin/users/${u._id}`)); } catch {}
+    try { setChanges((await api(`/api/admin/account-changes?userId=${u._id}`)).items || []); } catch {}
   }
   async function refresh() {
     await load();
@@ -243,6 +245,20 @@ export default function Users() {
                   </div>
                 </div>
               )}
+
+              {/* account changes (balance audit) */}
+              <div className="pt-3 border-t border-line">
+                <div className="text-xs text-cream/60 mb-1">Account changes (balance audit)</div>
+                <div className="max-h-40 overflow-y-auto divide-y divide-black/[0.06]">
+                  {changes.map(c => (
+                    <div key={c._id} className="py-1 flex justify-between text-xs">
+                      <span className="text-cream">{c.type} <span className="text-cream/40">{new Date(c.createdAt).toLocaleDateString()}</span></span>
+                      <span className={c.amount < 0 ? "text-red-500" : "text-emerald-500"}>{c.amount < 0 ? "" : "+"}${c.amount} <span className="text-cream/40">→ ${c.newBalance}</span></span>
+                    </div>
+                  ))}
+                  {!changes.length && <div className="text-cream/40 text-xs py-2">No balance changes.</div>}
+                </div>
+              </div>
 
               {/* login history */}
               {detail && (

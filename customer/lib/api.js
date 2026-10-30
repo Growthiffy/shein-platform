@@ -11,7 +11,11 @@ export async function api(path, opts = {}) {
   if (t) headers.Authorization = `Bearer ${t}`;
   const res = await fetch(`${BASE}${path}`, { ...opts, headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  if (!res.ok) {
+    const err = new Error(data.error || `HTTP ${res.status}`);
+    err.status = res.status; err.data = data;
+    throw err;
+  }
   return data;
 }
 

@@ -1,8 +1,9 @@
-// Level ladder per spec. Normal commission, latest (newer-collection) commission.
+// Level ladder per spec. Normal commission, latest (newer-collection) commission,
+// and the per-transaction withdrawal cap for the tier (null = unlimited).
 module.exports = [
-  { key: "beginner", name: "Beginner", minBalance: 0,    dailySalary: 230, normalPct: 1.2,  latestPct: 23 },
-  { key: "silver",   name: "Silver",   minBalance: 1000, dailySalary: 500, normalPct: 2,    latestPct: 28 },
-  { key: "gold",     name: "Gold",     minBalance: 2000, dailySalary: 750, normalPct: 4,    latestPct: 35 },
+  { key: "beginner", name: "Beginner", minBalance: 0,    dailySalary: 230, normalPct: 1.2,  latestPct: 23, withdrawLimit: 1300 },
+  { key: "silver",   name: "Silver",   minBalance: 1000, dailySalary: 500, normalPct: 2,    latestPct: 28, withdrawLimit: 4000 },
+  { key: "gold",     name: "Gold",     minBalance: 2000, dailySalary: 750, normalPct: 4,    latestPct: 35, withdrawLimit: null },
 ];
 
 module.exports.INVEST_TIERS = [

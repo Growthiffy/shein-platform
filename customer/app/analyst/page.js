@@ -60,6 +60,15 @@ function Body() {
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
   }
 
+  async function completeCombo() {
+    setErr(""); setBusy(true);
+    try {
+      const d = await api("/api/analyst/combo/complete", { method: "POST" });
+      toast({ text: `Combo commission: +$${d.dividend.toFixed(2)}`, type: "success" });
+      await refresh(); await loadNext();
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  }
+
   // After the success modal closes, pull the next product (shows cooldown panel).
   async function closeResult() { setResult(null); await loadNext().catch(e => setErr(e.message)); }
 
@@ -86,6 +95,8 @@ function Body() {
       {tab === "work" && (
         <div className="mt-6">
           {!next ? <LoadingCard />
+            : next.combo ? <ComboCard next={next} onComplete={completeCombo} busy={busy} err={err} />
+            : next.dailyLimit ? <DailyLimit limit={next.limit} />
             : next.done ? <CycleDone cycleCount={next.cycleCount} summary={summary} />
             : next.cooldown ? <Cooldown availableAt={next.availableAt} onReady={loadNext} />
             : <ProductCard next={next} form={form} setForm={setForm} onSubmit={submit} busy={busy} err={err} valid={valid} />}
@@ -288,6 +299,52 @@ function NextTimer({ availableAt }) {
   }, [availableAt]);
   const mm = Math.floor(left / 60), ss = String(left % 60).padStart(2, "0");
   return <div className="text-sm text-cream/55 mt-5">Next product available in {mm}:{ss}</div>;
+}
+
+function ComboCard({ next, onComplete, busy, err }) {
+  const p = next.product;
+  const blocked = next.blocked;
+  return (
+    <div className="card overflow-hidden fadein">
+      <div className="bg-gradient-to-r from-gold2/20 to-gold/10 px-5 py-3 flex items-center justify-between">
+        <span className="font-display text-lg text-gold">★ Deluxe Combo Lot</span>
+        <span className="chip gold-grad text-white border-none">HIGH COMMISSION</span>
+      </div>
+      <div className="p-5 grid md:grid-cols-2 gap-5">
+        <div className="rounded-xl overflow-hidden bg-black/[0.04] aspect-square grid place-items-center">
+          {p.image ? <img src={p.image} alt="" className="h-full w-full object-cover" /> : <span className="text-cream/30 font-display text-xl">{p.name}</span>}
+        </div>
+        <div>
+          <div className="text-xl text-cream">{p.name}</div>
+          <p className="text-sm text-cream/60 mt-1">{p.marketBrief}</p>
+          <div className="mt-4 space-y-1.5">
+            <Line label="Lot value" value={`$${Number(next.comboPrice).toLocaleString()}`} />
+            <Line label="Commission on completion" value={`$${Number(next.commission).toLocaleString()}`} highlight />
+            <Line label="Your balance" value={`$${Number(next.balance).toLocaleString()}`} />
+          </div>
+          {blocked ? (
+            <div className="mt-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
+              <div className="text-amber-600 font-semibold text-sm">Deposit ${Number(next.needRecharge).toLocaleString()} to unlock this lot</div>
+              <p className="text-xs text-cream/60 mt-0.5">This premium lot exceeds your balance. Top up the shortfall, then complete it to receive the full value back plus the commission.</p>
+              <Link href="/wallet/deposit" className="btn-gold mt-3 inline-flex text-sm">Deposit now</Link>
+            </div>
+          ) : (
+            <button className="btn-gold mt-4 w-full disabled:opacity-50" disabled={busy} onClick={onComplete}>{busy ? "Completing…" : "COMPLETE COMBO LOT"}</button>
+          )}
+          {err && <div className="text-red-400 text-sm mt-2">{err}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DailyLimit({ limit }) {
+  return (
+    <div className="card p-10 text-center fadein">
+      <h3 className="font-display text-2xl text-gold">Daily limit reached</h3>
+      <p className="text-cream/60 mt-2">You've completed your {limit} analyses for today. Come back tomorrow for more.</p>
+    </div>
+  );
 }
 
 function History({ items }) {

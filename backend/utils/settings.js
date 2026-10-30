@@ -9,6 +9,11 @@ const DEFAULTS = {
 
   // Analyst flow
   analystCooldownSec: 45,
+  dailyAnalysisLimit: 30,     // max analyses a member can submit per calendar day
+
+  // Maintenance mode: when true, the member-facing API returns 503 (admins exempt).
+  maintenanceMode: false,
+  maintenanceMessage: "We're performing scheduled maintenance. Please check back shortly.",
 
   // Activity feed + public stats
   activityFeedEnabled: true,
