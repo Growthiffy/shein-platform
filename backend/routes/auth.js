@@ -5,7 +5,7 @@ const User = require("../models/User");
 const Counter = require("../models/Counter");
 const LoginHistory = require("../models/LoginHistory");
 const Transaction = require("../models/Transaction");
-const { sendVerificationCode, sendLoginAlert, mailConfigured } = require("../utils/mailer");
+const { sendVerificationCode, sendLoginAlert, sendWelcome, mailConfigured } = require("../utils/mailer");
 const { SIGNUP_REWARD, REFERRAL_BONUS } = require("../config/levels");
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -116,6 +116,7 @@ router.post("/verify", async (req, res) => {
   }
 
   recordLogin(user, req);
+  sendWelcome(user).catch(() => {}); // best-effort welcome email
   res.json({ token: sign(user), user: publicUser(user) });
 });
 

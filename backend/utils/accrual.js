@@ -3,6 +3,7 @@
 const Transaction = require("../models/Transaction");
 const LEVELS = require("../config/levels");
 const { INVEST_TIERS } = LEVELS;
+const { sendSalaryCredited, sendInvestPayout } = require("./mailer");
 
 const DAY_MS  = 24 * 3600 * 1000;
 const WEEK_MS = 7 * DAY_MS;
@@ -37,6 +38,7 @@ async function accrueAndUpgrade(user) {
           user.balance = +(user.balance + payout).toFixed(2);
           user.totalEarned = +(user.totalEarned + payout).toFixed(2);
           await Transaction.create({ user: user._id, type: "salary", amount: payout, note: `${days}d × $${salLvl.dailySalary} @ ${salLvl.name}` });
+          sendSalaryCredited(user, payout).catch(() => {});
         }
         // Advance the clock whether or not we credited, forfeiting any excess
         // beyond the 7-day clamp so a long gap cannot be farmed across calls.
@@ -59,6 +61,7 @@ async function accrueAndUpgrade(user) {
         user.totalEarned = +(user.totalEarned + payout).toFixed(2);
         user.investment.lastPayoutAt = new Date(lastAt + weeks * WEEK_MS);
         await Transaction.create({ user: user._id, type: "invest_payout", amount: payout, note: `${weeks} wk × ${tier.weeklyPct}% @ Tier ${tier.name}` });
+        sendInvestPayout(user, payout).catch(() => {});
         changed = true;
       }
     }

@@ -110,6 +110,62 @@ async function sendLoginAlert(user, { ip, userAgent }) {
   });
 }
 
+async function sendWelcome(user) {
+  if (!user?.email) return false;
+  return sendBranded(user.email, "Welcome to Shein — Your analyst account is ready", {
+    heading: "Welcome to Shein",
+    bodyHtml: `<p>Your analyst account is ready. You can now review products, earn commission, and explore investment tiers.</p>
+      <p>Log in to start your first analysis cycle.</p>`,
+    antiPhish: user.antiPhishCode,
+    text: "Welcome to Shein — your analyst account is ready.",
+  });
+}
+
+async function sendSalaryCredited(user, amount) {
+  if (!user?.email) return false;
+  return sendBranded(user.email, `Daily earnings credited: +$${amount}`, {
+    heading: "Daily earnings credited",
+    bodyHtml: `<p>Your daily earnings of <b style="color:#e9d08b">$${amount}</b> have been credited to your balance.</p>`,
+    antiPhish: user.antiPhishCode,
+    text: `Daily earnings credited: +$${amount}`,
+  });
+}
+
+async function sendDepositApproved(user, amount) {
+  if (!user?.email) return false;
+  return sendBranded(user.email, `Your deposit of $${amount} has been credited`, {
+    heading: "Deposit credited",
+    bodyHtml: `<p>Your deposit of <b style="color:#e9d08b">$${amount}</b> has been reviewed and credited to your balance.</p>`,
+    antiPhish: user.antiPhishCode,
+    text: `Your deposit of $${amount} has been credited.`,
+  });
+}
+
+async function sendWithdrawalStatus(user, amount, stage) {
+  if (!user?.email) return false;
+  const label = String(stage).replace(/_/g, " ");
+  return sendBranded(user.email, `Your withdrawal of $${amount} is now ${label}`, {
+    heading: "Withdrawal update",
+    bodyHtml: `<p>Your withdrawal of <b style="color:#e9d08b">$${amount}</b> is now <b>${label}</b>.</p>`,
+    antiPhish: user.antiPhishCode,
+    text: `Your withdrawal of $${amount} is now ${label}.`,
+  });
+}
+
+async function sendInvestPayout(user, amount) {
+  if (!user?.email) return false;
+  return sendBranded(user.email, `Weekly investment return: +$${amount}`, {
+    heading: "Weekly investment return",
+    bodyHtml: `<p>Your weekly investment return of <b style="color:#e9d08b">$${amount}</b> has been credited.</p>`,
+    antiPhish: user.antiPhishCode,
+    text: `Weekly investment return: +$${amount}`,
+  });
+}
+
 function mailConfigured() { return provider() !== "none"; }
 
-module.exports = { sendVerificationCode, sendMail, sendBranded, brandedEmail, sendLoginAlert, mailConfigured };
+module.exports = {
+  sendVerificationCode, sendMail, sendBranded, brandedEmail, mailConfigured,
+  sendLoginAlert, sendWelcome, sendSalaryCredited, sendDepositApproved,
+  sendWithdrawalStatus, sendInvestPayout,
+};

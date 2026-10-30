@@ -13,6 +13,7 @@ const LoginHistory = require("../models/LoginHistory");
 const SupportMessage = require("../models/SupportMessage");
 const Announcement = require("../models/Announcement");
 const { DEFAULTS } = require("../utils/settings");
+const { sendDepositApproved, sendWithdrawalStatus } = require("../utils/mailer");
 
 router.use(auth, admin);
 
@@ -273,6 +274,7 @@ router.post("/tx/:id/approve", async (req, res) => {
     const u = await User.findById(tx.user);
     u.balance = +(u.balance + tx.amount).toFixed(2);
     await u.save();
+    sendDepositApproved(u, tx.amount).catch(() => {});
   }
   await tx.save();
   res.json({ tx });
@@ -327,6 +329,8 @@ router.post("/tx/:id/stage", async (req, res) => {
   if (u) {
     u.notifications.push({ text: `Your ${tx.type} of $${tx.amount} is now ${stage.replace(/_/g, " ")}.`, type: stage === "rejected" ? "warning" : "info" });
     await u.save();
+    if (tx.type === "withdrawal") sendWithdrawalStatus(u, tx.amount, stage).catch(() => {});
+    else if (tx.type === "deposit" && stage === "completed") sendDepositApproved(u, tx.amount).catch(() => {});
   }
   res.json({ tx });
 });
