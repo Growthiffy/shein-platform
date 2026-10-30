@@ -773,6 +773,28 @@ router.get("/personas", async (req, res) => res.json({ items: await Persona.find
 router.post("/personas", async (req, res) => res.json({ item: await Persona.create(req.body) }));
 router.patch("/personas/:id", async (req, res) => res.json({ item: await Persona.findByIdAndUpdate(req.params.id, req.body, { new: true }) }));
 router.delete("/personas/:id", async (req, res) => { await Persona.findByIdAndDelete(req.params.id); res.json({ ok: true }); });
+// Bulk top-up personas to a target count using the weighted identity pool (real
+// faces, US/UK/CA-heavy). Idempotent: only adds what's missing, never deletes.
+router.post("/personas/seed", async (req, res) => {
+  const { pool } = require("../utils/fakeIdentities");
+  const TITLES = ["Watch collector", "FX trader", "Handbag enthusiast", "Latest-collection fan", "Weekend analyst", "Long-term investor", "Scarf specialist", "Portfolio builder", "Sneaker hunter", "Steady saver", "Perfume reviewer", "Tier climber", "Belt & accessories", "Daily grinder", "Compounding fan", "Dress curator", "Early riser", "Patient trader", "Jacket reviewer", "Sunglasses picks", "Diamond-tier saver", "Community helper", "Momentum trader", "Value hunter"];
+  const target = Math.min(1000, Math.max(1, Number(req.body?.target) || 400));
+  const existing = await Persona.find().select("name");
+  const have = new Set(existing.map(p => p.name));
+  const need = target - existing.length;
+  if (need <= 0) return res.json({ added: 0, total: existing.length });
+  const docs = [];
+  let n = 0;
+  for (const p of pool()) {
+    if (docs.length >= need) break;
+    if (have.has(p.name)) continue;
+    have.add(p.name);
+    const i = n++;
+    docs.push({ name: p.name, title: TITLES[i % TITLES.length], avatar: p.avatar, group: i % 3 === 0 ? "daily" : i % 3 === 1 ? "invest" : "both", canReply: i % 4 !== 0, active: true });
+  }
+  if (docs.length) await Persona.insertMany(docs);
+  res.json({ added: docs.length, total: await Persona.estimatedDocumentCount() });
+});
 
 // Editorial community posting: admin publishes a message through an official
 // Shein staff announcement account (shown to users with a staff badge).
