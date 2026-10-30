@@ -289,6 +289,39 @@ router.get("/users", async (req, res) => {
   res.json({ items: await User.find(filter).select("-passwordHash").sort({ createdAt: -1 }).limit(500) });
 });
 
+// Create a member directly from the admin portal (no email verification needed).
+async function uniqueReferralCode() {
+  for (let i = 0; i < 6; i++) {
+    const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+    if (!(await User.findOne({ referralCode: code }))) return code;
+  }
+  return Math.random().toString(36).slice(2, 10).toUpperCase();
+}
+router.post("/users", async (req, res) => {
+  const { username, password } = req.body || {};
+  const email = (req.body?.email || "").trim().toLowerCase() || undefined;
+  if (!username || !username.trim()) return res.status(400).json({ error: "username required" });
+  if (!password || String(password).length < 8) return res.status(400).json({ error: "password must be at least 8 characters" });
+  if (await User.findOne({ username: username.trim() })) return res.status(409).json({ error: "username already in use" });
+  if (email && await User.findOne({ email })) return res.status(409).json({ error: "email already in use" });
+
+  const level = ["beginner", "silver", "gold"].includes(req.body?.level) ? req.body.level : "beginner";
+  const vLevel = ["none", "basic", "standard", "pending_premium", "premium"].includes(req.body?.verificationLevel) ? req.body.verificationLevel : "basic";
+  const balance = Number.isFinite(Number(req.body?.balance)) ? Number(req.body.balance) : 0;
+
+  const u = await User.create({
+    username: username.trim(), email,
+    passwordHash: await bcrypt.hash(String(password), 10),
+    role: "customer", emailVerified: true, rewardCredit: 0,
+    balance, level, phone: req.body?.phone,
+    accountNumber: await Counter.next("accountNumber"),
+    referralCode: await uniqueReferralCode(),
+    verification: { level: vLevel },
+  });
+  const user = u.toObject(); delete user.passwordHash;
+  res.json({ user });
+});
+
 // Full detail for one member: profile + related records (for the admin member view).
 router.get("/users/:id", async (req, res) => {
   const u = await User.findById(req.params.id).select("-passwordHash");

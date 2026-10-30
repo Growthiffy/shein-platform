@@ -213,6 +213,14 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     r = await req("GET", `/api/admin/users/${victim._id}`, { token: ownerTok });
     ok("admin member detail returns user + related", r.status === 200 && r.json.user?.email === "victim@test.com" && Array.isArray(r.json.transactions));
 
+    // admin creates a member directly
+    r = await req("POST", "/api/admin/users", { token: ownerTok, body: { username: "madebyadmin", password: "password123", balance: 250, level: "silver", verificationLevel: "standard" } });
+    ok("admin creates a member", r.status === 200 && r.json.user?.username === "madebyadmin" && r.json.user?.balance === 250 && !!r.json.user?.accountNumber && !r.json.user?.passwordHash);
+    r = await req("POST", "/api/admin/users", { token: ownerTok, body: { username: "madebyadmin", password: "password123" } });
+    ok("duplicate member username -> 409", r.status === 409);
+    r = await req("POST", "/api/auth/login", { body: { email: "madebyadmin", password: "password123" } });
+    ok("admin-created member can log in", r.status === 200 && !!r.json.token);
+
     r = await req("PATCH", `/api/admin/users/${victim._id}`, { token: ownerTok, body: { balance: 777, creditScore: 60, level: "gold" } });
     ok("admin edits member fields", r.status === 200 && r.json.user?.balance === 777 && r.json.user?.creditScore === 60);
     r = await req("PATCH", `/api/admin/users/${victim._id}`, { token: ownerTok, body: { email: "alice@test.com" } });

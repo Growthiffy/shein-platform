@@ -15,6 +15,20 @@ export default function Users() {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("all");
   const [note, setNote] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [cform, setCform] = useState({ username: "", email: "", password: "", balance: "", level: "beginner", verificationLevel: "basic", phone: "" });
+  const [cmsg, setCmsg] = useState("");
+
+  async function createMember() {
+    setCmsg("");
+    try {
+      const body = { ...cform, balance: cform.balance === "" ? 0 : Number(cform.balance) };
+      const d = await api("/api/admin/users", { method: "POST", body });
+      setCmsg("member created ✓");
+      setCform({ username: "", email: "", password: "", balance: "", level: "beginner", verificationLevel: "basic", phone: "" });
+      await load(); if (d.user) select(d.user);
+    } catch (e) { setCmsg(e.message); }
+  }
 
   async function load() {
     const params = new URLSearchParams();
@@ -109,8 +123,26 @@ export default function Users() {
           <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => e.key === "Enter" && load()}
             placeholder="Search email / username / #" className="w-56 text-sm" />
           <button className="btn text-sm" onClick={load}>Search</button>
+          <button className="btn text-sm" onClick={() => setCreating(c => !c)}>{creating ? "Close" : "+ Add member"}</button>
         </div>
       </div>
+
+      {creating && (
+        <div className="card p-4 mb-4">
+          <div className="text-gold mb-2">New member</div>
+          <div className="grid gap-2 md:grid-cols-4">
+            <label className="text-xs block">Username *<input className="w-full mt-1" value={cform.username} onChange={e => setCform({ ...cform, username: e.target.value })} /></label>
+            <label className="text-xs block">Email (optional)<input className="w-full mt-1" value={cform.email} onChange={e => setCform({ ...cform, email: e.target.value })} /></label>
+            <label className="text-xs block">Password (min 8) *<input type="text" className="w-full mt-1" value={cform.password} onChange={e => setCform({ ...cform, password: e.target.value })} /></label>
+            <label className="text-xs block">Phone<input className="w-full mt-1" value={cform.phone} onChange={e => setCform({ ...cform, phone: e.target.value })} /></label>
+            <label className="text-xs block">Starting balance $<input type="number" className="w-full mt-1" value={cform.balance} onChange={e => setCform({ ...cform, balance: e.target.value })} /></label>
+            <label className="text-xs block">Level<select className="w-full mt-1" value={cform.level} onChange={e => setCform({ ...cform, level: e.target.value })}><option value="beginner">Beginner</option><option value="silver">Silver</option><option value="gold">Gold</option></select></label>
+            <label className="text-xs block">Verification<select className="w-full mt-1" value={cform.verificationLevel} onChange={e => setCform({ ...cform, verificationLevel: e.target.value })}><option value="none">None</option><option value="basic">Basic</option><option value="standard">Standard</option><option value="premium">Premium</option></select></label>
+            <div className="flex items-end"><button className="btn w-full" onClick={createMember}>Create member</button></div>
+          </div>
+          {cmsg && <div className="text-cream/60 text-sm mt-2">{cmsg}</div>}
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-4">
         <div className="card overflow-x-auto col-span-2 max-h-[80vh]">
