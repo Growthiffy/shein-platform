@@ -62,6 +62,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     ok("verify returns token", r.status === 200 && !!r.json.token);
     let token = r.json.token;
     ok("verify -> basic level + signup reward in balance", r.json.user?.verification?.level === "basic" && r.json.user?.balance > 0);
+    // Re-verifying must be rejected (guards referral double-credit / re-credit).
+    r = await req("POST", "/api/auth/verify", { body: { email: "alice@test.com", code } });
+    ok("re-verify rejected -> 400 already verified", r.status === 400);
+    r = await req("POST", "/api/auth/verify", { body: { email: "alice@test.com" } });
+    ok("re-verify with no code rejected -> 400", r.status === 400);
 
     r = await req("POST", "/api/auth/login", { body: { email: "alice@test.com", password: "wrong" } });
     ok("login wrong password -> 401", r.status === 401);

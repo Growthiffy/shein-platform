@@ -88,6 +88,11 @@ router.post("/verify", async (req, res) => {
   const email = String(rawEmail || "").trim().toLowerCase();
   const user = await User.findOne({ email });
   if (!user) return res.status(404).json({ error: "no user" });
+  // Already verified → stop. Otherwise a request with no code passes the
+  // "verifyCode !== code" check (undefined !== undefined is false) and re-runs
+  // the referral credit on every call.
+  if (user.emailVerified) return res.status(400).json({ error: "already verified" });
+  if (!code || !user.verifyCode) return res.status(400).json({ error: "bad code" });
   if (user.verifyExpires && user.verifyExpires < new Date()) return res.status(400).json({ error: "code expired" });
   if (user.verifyCode !== code) return res.status(400).json({ error: "bad code" });
   user.emailVerified = true;

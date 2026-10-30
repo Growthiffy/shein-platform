@@ -684,10 +684,12 @@ router.post("/tx/:id/reject", async (req, res) => {
   tx.stageHistory.push({ stage: "rejected", at: new Date(), note: "Rejected by staff" });
   if (tx.type === "withdrawal") {
     const u = await User.findById(tx.user);
-    const old = u.balance;
-    u.balance = +(u.balance + tx.amount).toFixed(2);
+    // Refund to the wallet the withdrawal was taken from (analysis vs investment).
+    const field = tx.meta?.source === "invest" ? "investBalance" : "balance";
+    const old = +(u[field] || 0);
+    u[field] = +(old + tx.amount).toFixed(2);
     await u.save();
-    await logChange(u._id, old, tx.amount, u.balance, "Withdrawal Refunded");
+    await logChange(u._id, old, tx.amount, u[field], `Withdrawal Refunded${field === "investBalance" ? " (investment)" : ""}`);
   }
   await tx.save();
   res.json({ tx });
@@ -723,7 +725,11 @@ router.post("/tx/:id/stage", async (req, res) => {
     tx.status = "rejected";
     if (tx.type === "withdrawal") {
       const u = await User.findById(tx.user);
-      if (u) { u.balance = +(u.balance + tx.amount).toFixed(2); await u.save(); }
+      if (u) {
+        // Refund to the wallet the withdrawal came from.
+        const field = tx.meta?.source === "invest" ? "investBalance" : "balance";
+        u[field] = +((u[field] || 0) + tx.amount).toFixed(2); await u.save();
+      }
     }
   }
   await tx.save();

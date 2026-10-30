@@ -15,7 +15,8 @@ router.get("/", async (req, res) => {
 router.post("/select", auth, async (req, res) => {
   const { id } = req.body || {};
   if (req.user.mentor) return res.status(400).json({ error: "mentor already set; contact support to change" });
-  const m = await Mentor.findById(id);
+  if (!id || !/^[0-9a-fA-F]{24}$/.test(String(id))) return res.status(400).json({ error: "bad mentor id" });
+  const m = await Mentor.findOne({ _id: id, active: true });
   if (!m) return res.status(404).json({ error: "no mentor" });
   req.user.mentor = m._id;
   await req.user.save();
