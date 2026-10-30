@@ -101,11 +101,14 @@ function Body() {
       {!needVerify && <div ref={box} className="card mt-5 h-[62vh] overflow-y-auto p-3 md:p-4 space-y-2.5">
         {items.map(m => {
           const mine = m.authorType === "user" && m.user && String(m.user) === String(me.id);
-          const staff = m.authorType === "staff" || m.authorType === "ai" || m.authorType === "persona";
+          // Only real staff/announcement accounts get the badge — personas are
+          // regular members.
+          const staff = m.authorType === "staff" || m.authorType === "ai";
           return (
             <div key={m._id} id={"msg-" + m._id} className="group flex gap-2.5 scroll-mt-20">
-              <div className="h-9 w-9 shrink-0 rounded-full bg-gold2/15 grid place-items-center font-display text-gold2 overflow-hidden">
-                {m.authorAvatar ? <img src={m.authorAvatar} alt="" className="h-full w-full object-cover" /> : (m.authorName || "?")[0]?.toUpperCase()}
+              <div className="relative h-9 w-9 shrink-0 rounded-full bg-gold2/15 grid place-items-center font-display text-gold2 overflow-hidden">
+                {(m.authorName || "?")[0]?.toUpperCase()}
+                {m.authorAvatar && <img src={m.authorAvatar} alt="" className="absolute inset-0 h-full w-full object-cover" onError={e => { e.currentTarget.style.display = "none"; }} />}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 text-xs">

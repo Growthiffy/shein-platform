@@ -1,0 +1,7 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "customer", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 3010, "cwd": "customer" },
+    { "name": "dashboard", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 3011, "cwd": "dashboard" }
+  ]
+}
