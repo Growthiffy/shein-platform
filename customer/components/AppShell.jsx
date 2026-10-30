@@ -61,7 +61,20 @@ export default function AppShell({ children }) {
     setMe(m => ({ ...m, notifications: [] }));
   }
 
-  if (!ready || !me) return <div className="min-h-screen flex items-center justify-center bg-ink text-cream">Loading…</div>;
+  if (!ready || !me) return (
+    <div className="min-h-screen bg-ink text-cream">
+      <div className="h-16 border-b border-gold/10 flex items-center px-4 md:px-6">
+        <div className="skeleton h-6 w-28" />
+      </div>
+      <div className="mx-auto max-w-[88rem] px-4 md:px-6 py-6 space-y-4">
+        <div className="skeleton h-40 w-full rounded-2xl" />
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="skeleton h-20" /><div className="skeleton h-20" /><div className="skeleton h-20" />
+        </div>
+        <div className="skeleton h-48 w-full rounded-xl" />
+      </div>
+    </div>
+  );
   const unread = (me.notifications || []).filter(n => !n.read).length;
 
   return (

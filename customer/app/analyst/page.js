@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import AppShell, { useMe } from "@/components/AppShell";
 import { api } from "@/lib/api";
-import { CountUp, Confetti, StarRating, Skeleton } from "@/components/ui";
+import { CountUp, Confetti, StarRating, Skeleton, EmptyState } from "@/components/ui";
 import { useToast } from "@/components/Toast";
 
 export default function AnalystPage() { return <AppShell><Body /></AppShell>; }
@@ -291,7 +291,7 @@ function NextTimer({ availableAt }) {
 }
 
 function History({ items }) {
-  if (!items.length) return <div className="mt-6 card p-6 text-cream/60">No submissions yet.</div>;
+  if (!items.length) return <div className="mt-6 card"><EmptyState title="No submissions yet" hint="Analyze your first product to start earning commission." href="/analyst" cta="Start analyzing" /></div>;
   return (
     <div className="mt-6 card divide-y divide-black/[0.06]">
       {items.map(it => (

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import AppShell, { useMe } from "@/components/AppShell";
 import { api } from "@/lib/api";
 import { useToast } from "@/components/Toast";
+import { EmptyState } from "@/components/ui";
 import { TrendingUp } from "lucide-react";
 
 export default function InvestPage() { return <AppShell><Body /></AppShell>; }
@@ -134,7 +135,7 @@ function Body() {
                 <div className={`font-semibold ${h.type === "invest_payout" ? "text-gold2" : "text-cream"}`}>{h.type === "invest_lock" ? "-" : "+"}${h.amount}</div>
               </div>
             ))}
-            {!history.length && <div className="text-cream/50 text-sm py-4">No investment activity yet.</div>}
+            {!history.length && <EmptyState title="No investment activity yet" hint="Lock funds in a tier to start earning weekly returns." />}
           </div>
         </div>
       </div>

@@ -7,6 +7,7 @@ import LiveStats from "@/components/dashboard/LiveStats";
 import ActivityFeed from "@/components/dashboard/ActivityFeed";
 import Onboarding from "@/components/dashboard/Onboarding";
 import { AnnouncementBanner, AnnouncementsSection } from "@/components/dashboard/Announcements";
+import { CountUp } from "@/components/ui";
 
 export default function DashboardPage() { return <AppShell><Body /></AppShell>; }
 
@@ -41,8 +42,8 @@ function Body() {
 
       {/* balance strip */}
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
-        <div className="stat fadein"><div className="label">Balance</div><div className="text-2xl font-semibold text-gold mt-1">${me.balance?.toFixed(2) ?? "0.00"}</div></div>
-        <div className="stat fadein-2"><div className="label">Total Earned</div><div className="text-2xl font-semibold mt-1">${me.totalEarned?.toFixed(2) ?? "0.00"}</div></div>
+        <div className="stat fadein"><div className="label">Balance</div><div className="text-2xl font-semibold text-gold mt-1"><CountUp value={me.balance ?? 0} prefix="$" /></div></div>
+        <div className="stat fadein-2"><div className="label">Total Earned</div><div className="text-2xl font-semibold mt-1"><CountUp value={me.totalEarned ?? 0} prefix="$" /></div></div>
         <div className="stat fadein-3"><div className="label">Daily Salary</div><div className="text-2xl font-semibold mt-1">${me.dailySalary ?? 230}</div></div>
       </div>
 

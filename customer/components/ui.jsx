@@ -51,6 +51,22 @@ export function Confetti({ count = 80, onDone }) {
   );
 }
 
+// Friendly empty-state: small SVG, message, optional CTA.
+export function EmptyState({ title, hint, href, cta }) {
+  return (
+    <div className="flex flex-col items-center text-center py-8 px-4">
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none" className="mb-3" aria-hidden>
+        <rect x="10" y="16" width="44" height="34" rx="4" stroke="#ff3e6d" strokeOpacity="0.4" strokeWidth="2" />
+        <path d="M10 24h44" stroke="#ff3e6d" strokeOpacity="0.4" strokeWidth="2" />
+        <circle cx="32" cy="38" r="7" stroke="#ff3e6d" strokeOpacity="0.35" strokeWidth="2" />
+      </svg>
+      <div className="text-cream/70 font-medium">{title}</div>
+      {hint && <div className="text-cream/45 text-sm mt-1 max-w-xs">{hint}</div>}
+      {href && cta && <a href={href} className="btn-outline mt-4 text-sm">{cta}</a>}
+    </div>
+  );
+}
+
 // Clickable 1-5 star rating.
 export function StarRating({ value = 0, onChange, size = 26 }) {
   const [hover, setHover] = useState(0);
