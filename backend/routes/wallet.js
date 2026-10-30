@@ -2,6 +2,7 @@ const router = require("express").Router();
 const { auth } = require("../middleware/auth");
 const DepositWallet = require("../models/DepositWallet");
 const Transaction = require("../models/Transaction");
+const User = require("../models/User");
 const { getSetting, getSettings } = require("../utils/settings");
 
 // Public (to signed-in members) whitelist of wallet limits. Never exposes the
@@ -36,8 +37,8 @@ router.get("/deposit-addresses", auth, async (req, res) => {
 
 router.post("/deposit", auth, async (req, res) => {
   const { amount, chain, address, txHash, slipUrl } = req.body || {};
-  if (!amount || amount <= 0) return res.status(400).json({ error: "bad amount" });
   const amt = Number(amount);
+  if (!Number.isFinite(amt) || amt <= 0) return res.status(400).json({ error: "bad amount" });
 
   const s = await getSettings(["depositDailyLimit", "depositMonthlyLimit"]);
   const dayAgo = new Date(Date.now() - 24 * 3600 * 1000);
@@ -68,16 +69,20 @@ router.post("/deposit", auth, async (req, res) => {
 
 router.post("/withdraw", auth, async (req, res) => {
   const { amount, chain, address } = req.body || {};
-  if (!amount || amount <= 0) return res.status(400).json({ error: "bad amount" });
   const amt = Number(amount);
+  if (!Number.isFinite(amt) || amt <= 0) return res.status(400).json({ error: "bad amount" });
   const s = await getSettings(["minWithdrawalUsd", "withdrawalFeeUsd", "withdrawalProcessingHours", "verificationWithdrawalThreshold"]);
   const minWithdrawalUsd = Number(s.minWithdrawalUsd);
   if (amt < minWithdrawalUsd) return res.status(400).json({ error: `below minimum withdrawal of $${minWithdrawalUsd}` });
-  if (amt > req.user.balance) return res.status(400).json({ error: "insufficient balance" });
 
-  // 24h security hold: reject withdrawals to an address still on hold.
+  // Withdrawals may only go to a saved payout wallet. A brand-new address is not
+  // accepted here — it must be added first and clear a 24h security hold — so a
+  // free-typed address can never bypass the hold.
   const wallet = (req.user.payoutWallets || []).find(w => w.address === address);
-  if (wallet && wallet.active === false) {
+  if (!wallet) {
+    return res.status(400).json({ error: "Add this address as a payout wallet first. New addresses go through a 24-hour security hold before they can be used." });
+  }
+  if (wallet.active === false) {
     const until = wallet.addedAt ? new Date(new Date(wallet.addedAt).getTime() + 24 * 3600 * 1000) : null;
     return res.status(400).json({ error: `This withdrawal address is in a 24-hour security hold. Please wait until ${until ? until.toLocaleString() : "the hold clears"}.` });
   }
@@ -94,19 +99,33 @@ router.post("/withdraw", auth, async (req, res) => {
   const hours = Number(s.withdrawalProcessingHours) || 72;
   const estimatedCompletion = new Date(Date.now() + hours * 3600 * 1000);
 
-  const tx = await Transaction.create({
-    user: req.user._id, type: "withdrawal",
-    amount: amt, chain, address, status: "pending",
-    networkFee: fee,
-    estimatedCompletionAt: estimatedCompletion,
-    processingStage: "submitted",
-    stageHistory: [{ stage: "submitted", at: new Date(), note: "Withdrawal request submitted" }],
-  });
-  // soft-hold: deduct immediately; refund on reject
-  req.user.balance = +(req.user.balance - amt).toFixed(2);
-  await req.user.save();
+  // Atomic soft-hold: deduct only if the live balance still covers it, so two
+  // concurrent withdrawals cannot both pass the check and overdraw the account.
+  const updated = await User.findOneAndUpdate(
+    { _id: req.user._id, balance: { $gte: amt } },
+    { $inc: { balance: -amt } },
+    { new: true }
+  );
+  if (!updated) return res.status(400).json({ error: "insufficient balance" });
+
+  let tx;
+  try {
+    tx = await Transaction.create({
+      user: req.user._id, type: "withdrawal",
+      amount: amt, chain, address, status: "pending",
+      networkFee: fee,
+      estimatedCompletionAt: estimatedCompletion,
+      processingStage: "submitted",
+      stageHistory: [{ stage: "submitted", at: new Date(), note: "Withdrawal request submitted" }],
+    });
+  } catch (e) {
+    // Roll the hold back if the ledger write fails, so funds are never stuck.
+    await User.updateOne({ _id: req.user._id }, { $inc: { balance: amt } }).catch(() => {});
+    throw e;
+  }
+  const balance = +Number(updated.balance).toFixed(2);
   res.json({
-    tx, balance: req.user.balance,
+    tx, balance,
     breakdown: { amount: amt, networkFee: fee, youReceive: +(amt - fee).toFixed(2), estimatedCompletion },
   });
 });

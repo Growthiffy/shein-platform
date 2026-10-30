@@ -3,6 +3,7 @@ const { auth } = require("../middleware/auth");
 const Product = require("../models/Product");
 const AnalystSubmission = require("../models/AnalystSubmission");
 const Transaction = require("../models/Transaction");
+const User = require("../models/User");
 const { nextProductForUser, levelFor } = require("../utils/pricing");
 const { PRODUCTS_PER_CYCLE } = require("../config/levels");
 const { getSetting } = require("../utils/settings");
@@ -77,9 +78,21 @@ router.post("/submit", auth, async (req, res) => {
   const q = nextProductForUser(u, product);
   const score = qualityScore();
 
+  // Atomic claim: credit the commission and advance the cycle only if this is
+  // still the user's pending product, so two concurrent submits can't pay twice.
+  const claim = await User.findOneAndUpdate(
+    { _id: u._id, "analyst.pendingProduct": product._id },
+    {
+      $inc: { balance: q.profitAmount, totalEarned: q.profitAmount, "analyst.cycleCount": 1 },
+      $set: { "analyst.pendingProduct": null, "analyst.pendingProfitPct": null, "analyst.pendingAdjustedProfitPct": null, "analyst.lastSubmitAt": new Date() },
+    },
+    { new: true }
+  );
+  if (!claim) return res.status(400).json({ error: "this product was already submitted" });
+
   const sub = await AnalystSubmission.create({
     user: u._id, product: product._id,
-    cycleIndex: u.analyst.cycleCount + 1,
+    cycleIndex: claim.analyst.cycleCount,
     buyingRate: q.buyingRate, salePrice: q.salePrice,
     profitPct: q.profitPct, profitAmount: q.profitAmount,
     isLatest: product.isLatest, comment: String(comment).trim(),
@@ -87,22 +100,14 @@ router.post("/submit", auth, async (req, res) => {
     qualityScore: score, status: "complete",
   });
 
-  u.balance = +(u.balance + q.profitAmount).toFixed(2);
-  u.totalEarned = +(u.totalEarned + q.profitAmount).toFixed(2);
-  u.analyst.cycleCount += 1;
-  u.analyst.pendingProduct = null;
-  u.analyst.pendingProfitPct = null;
-  u.analyst.pendingAdjustedProfitPct = null;
-  u.analyst.lastSubmitAt = new Date();
-  await u.save();
-
   await Transaction.create({ user: u._id, type: "commission", amount: q.profitAmount, note: `Product ${product.brand} ${product.name}` });
 
   const cooldownSec = Number(await getSetting("analystCooldownSec")) || 45;
-  const cycleComplete = u.analyst.cycleCount >= PRODUCTS_PER_CYCLE;
+  const balance = +Number(claim.balance).toFixed(2);
+  const cycleComplete = claim.analyst.cycleCount >= PRODUCTS_PER_CYCLE;
 
   res.json({
-    ok: true, submission: sub, balance: u.balance, cycleCount: u.analyst.cycleCount,
+    ok: true, submission: sub, balance, cycleCount: claim.analyst.cycleCount,
     commission: q.profitAmount, qualityScore: score,
     cooldownSec, availableAt: Date.now() + cooldownSec * 1000,
     cycleComplete,

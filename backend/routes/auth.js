@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { authenticator } = require("otplib");
 const User = require("../models/User");
 const Counter = require("../models/Counter");
 const LoginHistory = require("../models/LoginHistory");
@@ -128,6 +129,14 @@ router.post("/login", async (req, res) => {
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return res.status(401).json({ error: "bad credentials" });
   if (!user.emailVerified) return res.status(403).json({ error: "verify email first", needsVerification: true });
+  // Second factor: if 2FA is enabled, a valid TOTP code is required to finish login.
+  if (user.twoFactorEnabled) {
+    const otp = String(req.body?.token || req.body?.otp || "").replace(/\s/g, "");
+    if (!otp) return res.status(401).json({ error: "2FA code required", needs2FA: true });
+    if (!user.twoFactorSecret || !authenticator.check(otp, user.twoFactorSecret)) {
+      return res.status(401).json({ error: "invalid 2FA code", needs2FA: true });
+    }
+  }
   recordLogin(user, req);
   res.json({ token: sign(user), user: publicUser(user) });
 });

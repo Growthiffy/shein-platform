@@ -45,16 +45,22 @@ function SignIn({ onSwitch, onNeedsVerify }) {
   const r = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [twoFA, setTwoFA] = useState(false);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   async function submit(e) {
     e.preventDefault(); setErr(""); setBusy(true);
     try {
-      const d = await api("/api/auth/login", { method: "POST", body: { email, password } });
+      const body = { email, password };
+      if (twoFA) body.token = otp.trim();
+      const d = await api("/api/auth/login", { method: "POST", body });
       setToken(d.token); r.push("/dashboard");
     } catch (e) {
       // Backend signals an unverified account; route the user to verification.
       if (/verify email/i.test(e.message)) { sessionStorage.setItem("shein_pending_email", email); onNeedsVerify(); return; }
+      // Account has 2FA — reveal the code field and ask for it.
+      if (/2fa/i.test(e.message)) { setTwoFA(true); setErr(/required/i.test(e.message) ? "" : e.message); return; }
       setErr(e.message);
     } finally { setBusy(false); }
   }
@@ -63,8 +69,10 @@ function SignIn({ onSwitch, onNeedsVerify }) {
       <h2 className="font-display text-2xl text-gold text-center">Sign In</h2>
       <Input label="Email" value={email} onChange={setEmail} type="email" />
       <Input label="Password" value={password} onChange={setPassword} type="password" />
+      {twoFA && <Input label="2FA code" value={otp} onChange={setOtp} />}
+      {twoFA && !err && <div className="text-cream/60 text-sm">Enter the 6-digit code from your authenticator app.</div>}
       {err && <div className="text-red-400 text-sm">{err}</div>}
-      <button className="btn-gold w-full" disabled={busy}>{busy ? "..." : "SIGN IN"}</button>
+      <button className="btn-gold w-full" disabled={busy}>{busy ? "..." : (twoFA ? "VERIFY & SIGN IN" : "SIGN IN")}</button>
       <div className="text-center text-sm text-cream/60">
         New here? <button type="button" className="text-gold underline" onClick={onSwitch}>Create account</button>
       </div>

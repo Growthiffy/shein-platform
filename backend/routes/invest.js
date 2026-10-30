@@ -2,6 +2,7 @@ const router = require("express").Router();
 const { auth } = require("../middleware/auth");
 const { INVEST_TIERS } = require("../config/levels");
 const Transaction = require("../models/Transaction");
+const User = require("../models/User");
 const { getSetting } = require("../utils/settings");
 
 router.get("/tiers", async (req, res) => {
@@ -12,23 +13,27 @@ router.get("/tiers", async (req, res) => {
 router.post("/start", auth, async (req, res) => {
   // Lock period is admin-controlled; any lockWeeks in the request body is ignored.
   const { amount, tierLevel } = req.body || {};
+  const amt = Number(amount);
   const lockWeeks = Number(await getSetting("investLockWeeks"));
   const tier = INVEST_TIERS.find(t => t.level === Number(tierLevel));
   if (!tier) return res.status(400).json({ error: "bad tier" });
-  if (Number(amount) < tier.min) return res.status(400).json({ error: `min ${tier.min}` });
-  if (Number(amount) > req.user.balance) return res.status(400).json({ error: "insufficient balance" });
+  if (!Number.isFinite(amt) || amt < tier.min) return res.status(400).json({ error: `min ${tier.min}` });
+  if (req.user.investment?.amount > 0) return res.status(400).json({ error: "You already have an active investment. Release it before starting a new one." });
 
   const now = new Date();
   const lockUntil = new Date(now.getTime() + lockWeeks * 7 * 24 * 3600 * 1000);
-  req.user.balance = +(req.user.balance - amount).toFixed(2);
-  req.user.investment = {
-    tier: tier.level, amount: Number(amount),
-    startedAt: now, lockUntil, lastPayoutAt: now,
-  };
-  await req.user.save();
+  // Atomic: deduct the principal only if the balance still covers it AND no
+  // investment is active — so a double-submit can't overwrite an active
+  // investment (losing its principal) or overdraw the balance.
+  const updated = await User.findOneAndUpdate(
+    { _id: req.user._id, balance: { $gte: amt }, $or: [{ "investment.amount": { $in: [0, null] } }, { investment: null }] },
+    { $inc: { balance: -amt }, $set: { investment: { tier: tier.level, amount: amt, startedAt: now, lockUntil, lastPayoutAt: now } } },
+    { new: true }
+  );
+  if (!updated) return res.status(400).json({ error: "insufficient balance, or an investment is already active" });
 
-  await Transaction.create({ user: req.user._id, type: "invest_lock", amount: Number(amount), note: `Tier ${tier.name}` });
-  res.json({ investment: req.user.investment, balance: req.user.balance });
+  await Transaction.create({ user: req.user._id, type: "invest_lock", amount: amt, note: `Tier ${tier.name}` });
+  res.json({ investment: updated.investment, balance: +Number(updated.balance).toFixed(2) });
 });
 
 const WEEK_MS = 7 * 24 * 3600 * 1000;
@@ -64,12 +69,20 @@ router.post("/release", auth, async (req, res) => {
   if (!inv?.amount) return res.status(400).json({ error: "no active investment" });
   if (inv.lockUntil && inv.lockUntil > new Date()) return res.status(400).json({ error: "still locked" });
   const amt = inv.amount;
-  req.user.balance = +(req.user.balance + amt).toFixed(2);
-  // Full reset so no stale lock/payout timestamps linger.
-  req.user.investment = { tier: 0, amount: 0, startedAt: null, lockUntil: null, lastPayoutAt: null };
-  await req.user.save();
+  const now = new Date();
+  // Atomic: return the principal and clear the investment in one guarded op, so a
+  // double-click can't credit the principal twice.
+  const updated = await User.findOneAndUpdate(
+    { _id: req.user._id, "investment.amount": { $gt: 0 }, $or: [{ "investment.lockUntil": null }, { "investment.lockUntil": { $lte: now } }] },
+    [
+      { $set: { balance: { $round: [{ $add: ["$balance", "$investment.amount"] }, 2] } } },
+      { $set: { investment: { tier: 0, amount: 0, startedAt: null, lockUntil: null, lastPayoutAt: null } } },
+    ],
+    { new: true }
+  );
+  if (!updated) return res.status(400).json({ error: "no active investment" });
   await Transaction.create({ user: req.user._id, type: "invest_release", amount: amt, note: "principal returned" });
-  res.json({ balance: req.user.balance });
+  res.json({ balance: +Number(updated.balance).toFixed(2) });
 });
 
 module.exports = router;
