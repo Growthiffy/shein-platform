@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import AppShell, { useMe } from "@/components/AppShell";
 import { api } from "@/lib/api";
-import { Send, Trash2 } from "lucide-react";
+import { Send, Trash2, Paperclip } from "lucide-react";
 
 export default function MentorPage() { return <AppShell><Body /></AppShell>; }
 
@@ -14,6 +14,7 @@ function Body() {
   const [typing, setTyping] = useState([]);
   const [text, setText] = useState("");
   const box = useRef(null);
+  const fileRef = useRef(null);
 
   // 1:1 room key: mentor:<mentorId>:<myUserId>.
   const roomOf = (mentorId) => `mentor:${mentorId}:${me.id}`;
@@ -48,6 +49,14 @@ function Body() {
     if (!t.trim() || !picked) return;
     await api(`/api/community/${roomOf(picked._id)}`, { method: "POST", body: { text: t } });
     setText(""); loadChat(picked._id);
+  }
+  async function sendFile(e) {
+    const file = e.target.files?.[0]; e.target.value = "";
+    if (!file || !picked) return;
+    if (file.size > 3 * 1024 * 1024) return alert("File too large (max 3MB).");
+    const image = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
+    try { await api(`/api/community/${roomOf(picked._id)}`, { method: "POST", body: { image, fileName: file.name, text: "" } }); loadChat(picked._id); }
+    catch (err) { alert(err.message); }
   }
   function onKey(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }
   async function del(id) {
@@ -105,7 +114,10 @@ function Body() {
                           <div className={`text-[11px] truncate ${mine ? "text-white/60" : "text-cream/50"}`}>{m.replyTo.text}</div>
                         </div>
                       )}
-                      <Formatted text={m.text} light={mine} />
+                      {m.image && (m.image.startsWith("data:application/pdf")
+                        ? <a href={m.image} download={m.fileName || "file.pdf"} className={`mt-1 inline-flex items-center gap-1 underline text-xs ${mine ? "text-white" : "text-gold2"}`}>📄 {m.fileName || "document.pdf"}</a>
+                        : <img src={m.image} alt={m.fileName || ""} className="mt-1 max-h-60 rounded-lg" />)}
+                      {m.text && <Formatted text={m.text} light={mine} />}
                     </div>
                   </div>
                 );
@@ -124,6 +136,8 @@ function Body() {
             </div>
             {/* composer */}
             <div className="flex items-end gap-2 mt-3">
+              <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={sendFile} />
+              <button className="btn-outline h-11 w-11 shrink-0 !px-0 grid place-items-center" onClick={() => fileRef.current?.click()} title="Attach image / file"><Paperclip size={16} /></button>
               <textarea value={text} onChange={e => setText(e.target.value)} onKeyDown={onKey} rows={1}
                 placeholder="Message your mentor…  (Enter to send, Shift+Enter for a new line)" className="field flex-1 resize-none max-h-32" />
               <button className="btn-gold h-11 w-12 shrink-0 !px-0" onClick={send}><Send size={16} /></button>

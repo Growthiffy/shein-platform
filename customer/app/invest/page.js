@@ -96,7 +96,7 @@ function Body() {
                 <Row k="Status" v={summary.unlocked ? "Unlocked" : "Locked"} />
               </div>
               {err && <div className="text-red-500 text-sm mt-2">{err}</div>}
-              <ShareProof kind="invest" group="invest" />
+              <ShareProof kind="invest" group={`invest:${me.id}`} />
               <button className="btn-gold mt-4 w-full disabled:opacity-40" onClick={release} disabled={!summary.unlocked}>
                 {summary.unlocked ? "RELEASE PRINCIPAL" : "LOCKED — RELEASE AFTER LOCK"}
               </button>

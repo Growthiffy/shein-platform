@@ -104,7 +104,7 @@ function plan(state, personas) {
   if (roll < 0.9) {
     const sp = pick(personas);
     // Occasionally share a payment "screenshot" (withdrawal/deposit/invest proof).
-    if ((state.group === "daily" || state.group === "invest") && Math.random() < 0.18) {
+    if (baseOf(state.group) && Math.random() < 0.18) {
       const p = makeProof(state.group, new Date());
       const msg = buildMsg(state.group, last, { name: sp.name, avatar: sp.avatar }, proofText(p), {});
       msg.proof = p;
@@ -127,11 +127,15 @@ async function currentTyping(group) {
 // Populate a believable backlog the first time a group is quiet, so the room
 // looks alive immediately (independent of active hours / live pacing). Messages
 // are given staggered past timestamps across the last ~8 hours.
+// Base community type of a (possibly per-member) group: daily:<id> -> "daily".
+const baseOf = g => (g && g.startsWith("daily")) ? "daily" : (g && g.startsWith("invest")) ? "invest" : null;
+
 async function seedBacklog(group) {
-  if (group !== "daily" && group !== "invest") return;
+  const base = baseOf(group);
+  if (!base) return;
   if (await ChatMessage.countDocuments({ group, authorType: "persona" }) >= 12) return;
 
-  const personas = await Persona.find({ active: true, group: { $in: [group, "both"] } });
+  const personas = await Persona.find({ active: true, group: { $in: [base, "both"] } });
   if (personas.length < 2) return;
 
   const now = Date.now();
@@ -301,7 +305,8 @@ async function maybeReplyToUser(group, personas) {
 }
 
 async function maybePost(group) {
-  if (group !== "daily" && group !== "invest") return;
+  const base = baseOf(group);
+  if (!base) return;
   await seedBacklog(group).catch(() => {}); // one-time populate so the room is never empty
   if (!(await withinActiveHours())) return; // live chatter only during active hours
 
@@ -310,11 +315,11 @@ async function maybePost(group) {
   // present/typing (so the human answers them, not a persona).
   const human = await humanPresent(group).catch(() => false);
   if (!human) {
-    const ps = await Persona.find({ active: true, group: { $in: [group, "both"] } });
+    const ps = await Persona.find({ active: true, group: { $in: [base, "both"] } });
     if (ps.length && await maybeReplyToUser(group, ps).catch(() => false)) return;
   }
 
-  const personas = await Persona.find({ active: true, group: { $in: [group, "both"] } });
+  const personas = await Persona.find({ active: true, group: { $in: [base, "both"] } });
   if (!personas.length) return;
 
   const now = Date.now();

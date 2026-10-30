@@ -15,11 +15,12 @@ function fmtLeft(ms) {
 
 export function SalaryCountdown() {
   const { me } = useMe();
-  const base = me.lastSalaryAt ? new Date(me.lastSalaryAt).getTime() + 24 * 3600 * 1000 : null;
+  // Always show a countdown: fall back to the account start if salary hasn't accrued yet.
+  const anchor = me.lastSalaryAt || me.createdAt;
+  const base = (anchor ? new Date(anchor).getTime() : Date.now()) + 24 * 3600 * 1000;
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
-  if (!base) return null;
-  const left = base - now;
+  const left = Math.max(0, base - now);
   const pct = Math.max(0, Math.min(100, Math.round((1 - left / (24 * 3600 * 1000)) * 100)));
   return (
     <div className="stat">

@@ -779,10 +779,9 @@ router.post("/combos", async (req, res) => {
     commission: Number(commission) || 20,
     products: Array.isArray(products) && products.length ? products : [{ name: "Deluxe Combo Lot", value: Number(negativeAmount) }],
   });
-  // Auto-purchase immediately: deduct the combo price so the member's balance goes
-  // negative right away (unavoidable); they must deposit to settle.
-  const triggered = await triggerCombo(userId).catch(() => null);
-  res.json({ item, triggered: !!triggered, balance: triggered?.balance });
+  // The combo stays pending and auto-purchases when the member reaches order
+  // #comboAt of the day (handled in /analyst/next).
+  res.json({ item });
 });
 router.patch("/combos/:id", async (req, res) => res.json({ item: await Combo.findByIdAndUpdate(req.params.id, req.body, { new: true }) }));
 router.delete("/combos/:id", async (req, res) => { await Combo.findByIdAndDelete(req.params.id); res.json({ ok: true }); });

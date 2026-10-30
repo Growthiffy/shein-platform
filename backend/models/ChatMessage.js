@@ -19,6 +19,9 @@ const Schema = new mongoose.Schema({
     text:       { type: String },
   },
   mentions:    [{ type: String }],
+  // Optional image/file attachment (data URI), used in mentor chat.
+  image:       { type: String },
+  fileName:    { type: String },
   // Optional "payment screenshot" a persona shares as social proof. Rendered as a
   // receipt card in the chat (withdrawal / deposit / investment confirmation).
   proof:       {

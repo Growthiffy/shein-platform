@@ -8,7 +8,7 @@ const DEFAULTS = {
   personaChatIntervalMin: 15,
 
   // Analyst flow
-  analystCooldownSec: 45,
+  analystCooldownSec: 10,
   dailyAnalysisLimit: 30,     // max analyses a member can submit per calendar day
 
   // Maintenance mode: when true, the member-facing API returns 503 (admins exempt).

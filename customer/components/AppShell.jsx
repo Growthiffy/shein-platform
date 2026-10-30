@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { api, getToken, setToken } from "@/lib/api";
-import { LayoutGrid, LineChart, TrendingUp, Users, User, Bell, LogOut, Wallet, Trophy } from "lucide-react";
+import { LayoutGrid, LineChart, TrendingUp, Users, User, Bell, LogOut, Wallet, Trophy, Crown } from "lucide-react";
 import Footer from "@/components/Footer";
 import ToastProvider, { useToast } from "@/components/Toast";
 import ChatWidget from "@/components/ChatWidget";
@@ -30,6 +30,7 @@ const NAV = [
   { href: "/analyst",    label: "Analyst",   icon: LineChart },
   { href: "/invest",     label: "Invest",    icon: TrendingUp },
   { href: "/community",  label: "Community", icon: Users },
+  { href: "/mentor",     label: "Mentor",    icon: Crown },
   { href: "/rewards",    label: "Rewards",   icon: Trophy },
   { href: "/profile",    label: "Profile",   icon: User },
 ];
@@ -53,6 +54,12 @@ export default function AppShell({ children }) {
   useEffect(() => {
     if (!getToken()) { r.push("/auth"); return; }
     refresh().finally(() => setReady(true));
+    // Live poll: keep balance / notifications / combo / maintenance fresh without a
+    // manual refresh. Silent — a transient poll error never logs the member out.
+    const t = setInterval(() => {
+      api("/api/me").then(d => { setMaint(null); setMe(d.user); }).catch(e => { if (e?.status === 503 || e?.data?.maintenance) setMaint(e.data?.error || e.message); });
+    }, 12000);
+    return () => clearInterval(t);
   }, []);
 
   function logout() { api("/api/auth/logout", { method: "POST" }).catch(() => {}); setToken(null); r.push("/auth"); }

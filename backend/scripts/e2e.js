@@ -146,6 +146,12 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     ok("community has payment-proof posts", proofCount > 0, `proofs=${proofCount}`);
     r = await req("POST", "/api/community/daily", { token, body: { text: "hey everyone, new here!" } });
     ok("community post message ok", r.status === 200 && !!r.json.msg);
+    // per-member rooms: a member can open their own daily:<id> but not another's
+    const myId = (await req("GET", "/api/me", { token })).json.user?.id;
+    r = await req("GET", `/api/community/daily:${myId}`, { token });
+    ok("member opens own per-member daily room", r.status === 200 && Array.isArray(r.json.items));
+    r = await req("GET", "/api/community/daily:000000000000000000000000", { token });
+    ok("member cannot open another's community room -> 403", r.status === 403);
 
     // ================= ADMIN RBAC + mentor-admin =================
     const owner = await User.create({ username: "owner", passwordHash: await bcrypt.hash("password123", 10), role: "admin", isAdmin: true, emailVerified: true, permissions: [] });
@@ -301,9 +307,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     // --- Combo: auto-purchased on add, auto-settled on admin-confirmed deposit ---
     await req("PATCH", `/api/admin/users/${alice._id}`, { token: ownerTok, body: { balance: 1000 } });
     r = await req("POST", "/api/admin/combos", { token: ownerTok, body: { userId: String(alice._id), comboAt: 1, negativeAmount: 200, commission: 20 } });
-    ok("admin combo auto-purchases (balance driven negative on add)", r.status === 200 && r.json.triggered === true && r.json.balance === -200);
+    ok("admin creates a pending combo (not triggered on add)", r.status === 200 && !!r.json.item?._id);
+    // triggers when the member reaches order #comboAt of the day (here, next /next)
     r = await req("GET", "/api/analyst/next", { token });
-    ok("combo shown with deposit prompt", r.status === 200 && r.json.combo === true && r.json.balance === -200 && r.json.needRecharge === 200);
+    ok("combo auto-purchases at order# (balance driven negative)", r.status === 200 && r.json.combo === true && r.json.balance === -200 && r.json.needRecharge === 200);
     r = await req("GET", "/api/me", { token });
     ok("active combo surfaced on /me for the banner", r.status === 200 && r.json.user?.combo?.needRecharge === 200);
     r = await req("POST", "/api/analyst/combo/complete", { token });

@@ -7,7 +7,10 @@ import { Trash2, Reply, X, Send } from "lucide-react";
 
 export default function CommunityAdmin() {
   const [mentors, setMentors] = useState([]);
-  const [group, setGroup] = useState("daily");
+  const [members, setMembers] = useState([]);
+  const [memberId, setMemberId] = useState("");
+  const [mq, setMq] = useState("");
+  const [group, setGroup] = useState("");
   const [authorName, setAuthorName] = useState("Shein Staff");
   const [text, setText] = useState("");
   const [canReply, setCanReply] = useState(true);
@@ -17,8 +20,14 @@ export default function CommunityAdmin() {
   const box = useRef(null);
   const typingSentAt = useRef(0);
 
-  useEffect(() => { api("/api/mentor").then(d => setMentors(d.items)); }, []);
+  useEffect(() => { api("/api/mentor").then(d => setMentors(d.items)).catch(() => {}); loadMembers(); }, []);
+  async function loadMembers() {
+    const d = await api(`/api/admin/users${mq.trim() ? "?q=" + encodeURIComponent(mq.trim()) : ""}`).catch(() => ({ items: [] }));
+    setMembers(d.items || []);
+    if (!memberId && d.items?.length) { setMemberId(d.items[0]._id); setGroup(`daily:${d.items[0]._id}`); }
+  }
   async function loadMessages(g, scroll = true) {
+    if (!g) return;
     const items = (await api(`/api/admin/chat/${g}`)).items.reverse();
     setMessages(items);
     if (scroll) setTimeout(() => box.current?.scrollTo(0, box.current.scrollHeight), 50);
@@ -47,10 +56,12 @@ export default function CommunityAdmin() {
     } else setAuthorName("Shein Staff");
   }, [group, mentors]);
 
+  // Each member has their own daily/invest rooms. Mentor rooms are shared per mentor.
   const groups = [
-    ...COMMUNITY_GROUPS.map(g => ({ v: g, t: g })),
+    ...(memberId ? [{ v: `daily:${memberId}`, t: "Daily Analysts" }, { v: `invest:${memberId}`, t: "Investors" }] : []),
     ...mentors.map(m => ({ v: `mentor:${m._id}`, t: `mentor · ${m.name}` })),
   ];
+  const mName = m => m.username || (m.email || "").split("@")[0];
 
   async function post() {
     setNote("");
@@ -66,12 +77,21 @@ export default function CommunityAdmin() {
 
   return (
     <Shell>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
         <h1 className="text-2xl text-gold font-display">Community</h1>
-        <select value={group} onChange={e => setGroup(e.target.value)} className="text-sm">
-          {groups.map(g => <option key={g.v} value={g.v}>{g.t}</option>)}
-        </select>
+        <div className="flex flex-wrap gap-2 items-center">
+          <input value={mq} onChange={e => setMq(e.target.value)} onKeyDown={e => e.key === "Enter" && loadMembers()} placeholder="Find member…" className="w-40 text-sm" />
+          <button className="btn text-sm" onClick={loadMembers}>Find</button>
+          <select value={memberId} onChange={e => { setMemberId(e.target.value); setGroup(`daily:${e.target.value}`); }} className="text-sm">
+            {!members.length && <option value="">No members</option>}
+            {members.map(m => <option key={m._id} value={m._id}>{mName(m)} (#{m.accountNumber ?? "?"})</option>)}
+          </select>
+          <select value={group} onChange={e => setGroup(e.target.value)} className="text-sm">
+            {groups.map(g => <option key={g.v} value={g.v}>{g.t}</option>)}
+          </select>
+        </div>
       </div>
+      <p className="text-cream/50 text-xs mb-3">Each member has their own private community. Pick a member, then a room.</p>
 
       <div className="card flex flex-col" style={{ height: "74vh" }}>
         <div ref={box} className="flex-1 overflow-y-auto p-4 space-y-2.5">

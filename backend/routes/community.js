@@ -8,10 +8,12 @@ const { fillGap } = require("../utils/backfill");
 const Transaction = require("../models/Transaction");
 const { notifyAdmins } = require("../utils/adminNotify");
 
-// Resolve the access gate a group maps to. daily/invest map to their own flag;
-// any mentor:<id> room maps to mentorRooms. Unknown groups are allowed.
+// Per-member communities: each real member has their own daily/invest rooms,
+// keyed `daily:<userId>` / `invest:<userId>`. Members never share a room. Mentor
+// rooms are `mentor:<mentorId>:<userId>`. Legacy bare "daily"/"invest" still parse.
 function gateFor(group) {
-  if (group === "daily" || group === "invest") return group;
+  if (group.startsWith("daily")) return "daily";
+  if (group.startsWith("invest")) return "invest";
   if (group.startsWith("mentor:")) return "mentorRooms";
   return null;
 }
@@ -19,8 +21,12 @@ function allowed(user, group) {
   const gate = gateFor(group);
   if (!gate) return true;
   if (user.communityAccess?.[gate] === false) return false;
-  // Per-member mentor room (mentor:<mentorId>:<userId>): a member may only open
-  // their own room; admins (real mentors) may open any.
+  // Per-member daily/invest room: a member may only open their own; admins any.
+  if (group.startsWith("daily:") || group.startsWith("invest:")) {
+    const uid = group.split(":")[1];
+    if (uid && !user.isAdmin && String(uid) !== String(user._id)) return false;
+  }
+  // Per-member mentor room (mentor:<mentorId>:<userId>).
   if (group.startsWith("mentor:")) {
     const parts = group.split(":");
     if (parts.length >= 3 && !user.isAdmin && String(parts[2]) !== String(user._id)) return false;
@@ -31,7 +37,8 @@ function allowed(user, group) {
 // Full community (daily/invest) requires Standard verification — Basic members
 // get a verification prompt instead. Mentor rooms are not gated this way.
 function verificationError(user, group) {
-  if (group !== "daily" && group !== "invest") return null;
+  const g = gateFor(group);
+  if (g !== "daily" && g !== "invest") return null;
   if (user.isAdmin) return null;
   const level = user.verification?.level || "none";
   if (["standard", "premium"].includes(level)) return null;
@@ -89,7 +96,9 @@ router.post("/:group", auth, async (req, res) => {
   const vErr = verificationError(req.user, group);
   if (vErr) return res.status(403).json(vErr);
   const text = String(req.body?.text || "").replace(/\r\n/g, "\n").trim();
-  if (!text) return res.status(400).json({ error: "empty" });
+  const image = typeof req.body?.image === "string" && /^data:(image\/|application\/pdf)/.test(req.body.image) ? req.body.image : undefined;
+  if (image && image.length > 4_000_000) return res.status(400).json({ error: "file too large (max ~3MB)" });
+  if (!text && !image) return res.status(400).json({ error: "empty" });
   if (text.length > 2000) return res.status(400).json({ error: "message too long" });
 
   // Reply snapshot (must reference a message in the same group).
@@ -106,7 +115,7 @@ router.post("/:group", auth, async (req, res) => {
   const msg = await ChatMessage.create({
     group, user: req.user._id,
     authorType: "user", authorName,
-    text, replyTo, mentions,
+    text, replyTo, mentions, image, fileName: image ? String(req.body?.fileName || "").slice(0, 120) : undefined,
   });
   notifyAdmins("community", { title: `Community post by ${authorName}`, body: text.slice(0, 140), user: req.user._id, userName: authorName, meta: { group } });
   res.json({ msg });
@@ -118,7 +127,7 @@ const KIND_TYPES = { withdrawal: ["withdrawal"], deposit: ["deposit"], invest: [
 const proofMoney = n => "$" + Number(Math.round(n)).toLocaleString("en-US");
 router.post("/:group/share-proof", auth, async (req, res) => {
   const group = req.params.group;
-  if (group !== "daily" && group !== "invest") return res.status(400).json({ error: "can only share to daily or invest" });
+  if (!group.startsWith("daily") && !group.startsWith("invest")) return res.status(400).json({ error: "can only share to daily or invest" });
   if (!allowed(req.user, group)) return res.status(403).json({ error: "no access to this group" });
   const vErr = verificationError(req.user, group);
   if (vErr) return res.status(403).json(vErr);

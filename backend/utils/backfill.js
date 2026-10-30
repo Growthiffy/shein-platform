@@ -89,9 +89,10 @@ const KEEP = 800;              // trim room to newest N afterwards
 // it no-ops unless the room has actually been quiet, and claims a short lock so
 // concurrent requests can't double-fill.
 async function fillGap(group) {
-  if (group !== "daily" && group !== "invest") return 0;
+  const base = (group && group.startsWith("daily")) ? "daily" : (group && group.startsWith("invest")) ? "invest" : null;
+  if (!base) return 0;
 
-  const personas = await Persona.find({ active: true, group: { $in: [group, "both"] } });
+  const personas = await Persona.find({ active: true, group: { $in: [base, "both"] } });
   if (personas.length < 2) return 0;
 
   const last = await ChatMessage.findOne({ group }).sort({ createdAt: -1 }).select("createdAt");

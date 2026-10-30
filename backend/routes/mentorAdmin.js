@@ -69,7 +69,9 @@ router.post("/room/:userId", async (req, res) => {
   const u = await User.findOne({ _id: req.params.userId, mentor: m._id }).select("_id");
   if (!u) return res.status(404).json({ error: "not your mentee" });
   const text = String(req.body?.text || "").replace(/\r\n/g, "\n").trim();
-  if (!text) return res.status(400).json({ error: "empty" });
+  const image = typeof req.body?.image === "string" && /^data:(image\/|application\/pdf)/.test(req.body.image) ? req.body.image : undefined;
+  if (image && image.length > 4_000_000) return res.status(400).json({ error: "file too large (max ~3MB)" });
+  if (!text && !image) return res.status(400).json({ error: "empty" });
   if (text.length > 2000) return res.status(400).json({ error: "message too long" });
   const group = roomFor(m._id, u._id);
 
@@ -81,7 +83,7 @@ router.post("/room/:userId", async (req, res) => {
   const mentions = [...new Set((text.match(/@([A-Za-z0-9._-]{2,30})/g) || []).map(s => s.slice(1)))];
   const msg = await ChatMessage.create({
     group, authorType: "mentor", authorName: m.name, authorAvatar: m.avatar,
-    text, canReply: true, replyTo, mentions,
+    text, canReply: true, replyTo, mentions, image, fileName: image ? String(req.body?.fileName || "").slice(0, 120) : undefined,
   });
   // Refresh my presence so personas stay muted right after I post.
   await heartbeat({ group, user: req.user._id, name: m.name, kind: "mentor", typing: false }).catch(() => {});

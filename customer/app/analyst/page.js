@@ -35,6 +35,15 @@ function Body() {
 
   async function loadNext() { setErr(""); setNext(await api("/api/analyst/next")); }
   useEffect(() => { loadNext().catch(e => setErr(e.message)); }, []);
+  // Live refresh for non-form states (combo awaiting settle, daily limit) so a
+  // combo settling / resetting shows without a manual refresh. Never while a
+  // product form is open (would wipe the member's input) — cooldown self-advances.
+  useEffect(() => {
+    if (!next || next.cooldown) return;
+    if (next.product && !next.combo) return;
+    const t = setInterval(() => loadNext().catch(() => {}), 8000);
+    return () => clearInterval(t);
+  }, [next?.combo, next?.blocked, next?.dailyLimit, next?.done]);
   useEffect(() => { if (tab === "history") api("/api/analyst/history").then(d => setHistory(d.items)); }, [tab]);
 
   function resetForm() { setForm({ demand: 0, quality: 0, price: 0, rec: "", comment: "" }); }

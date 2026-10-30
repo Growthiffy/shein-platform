@@ -13,10 +13,13 @@ const { logChange } = require("./ledger");
 const r2 = n => Math.round(Number(n || 0) * 100) / 100;
 const commissionOf = c => r2((Number(c.negativeAmount) > 0 ? Number(c.negativeAmount) : Number(c.comboPrice)) * (Number(c.commission || 20) / 100));
 
-// Trigger the member's oldest pending combo (auto-purchase). Returns the active
-// combo + new balance, or null if none pending.
-async function triggerCombo(userId) {
-  const pending = await Combo.findOne({ user: userId, status: "pending" }).sort({ createdAt: 1 });
+// Trigger a DUE pending combo (auto-purchase). A combo is due when the member's
+// next order of the day has reached its comboAt (comboAt <= ordersToday + 1).
+// Pass ordersToday from the caller; omit to trigger regardless (admin force).
+async function triggerCombo(userId, ordersToday) {
+  const q = { user: userId, status: "pending" };
+  if (ordersToday != null) q.comboAt = { $lte: Number(ordersToday) + 1 };
+  const pending = await Combo.findOne(q).sort({ comboAt: 1, createdAt: 1 });
   if (!pending) return null;
   const u = await User.findById(userId).select("balance");
   if (!u) return null;

@@ -123,7 +123,7 @@ function Body() {
               {receipt.estimatedCompletionAt && <Row k="Est. completion" v={new Date(receipt.estimatedCompletionAt).toLocaleDateString()} />}
             </div>
             <StageTracker steps={WITHDRAW_STEPS} current={receipt.processingStage} history={receipt.stageHistory} />
-            <ShareProof txId={receipt._id} kind="withdrawal" />
+            <ShareProof txId={receipt._id} kind="withdrawal" group={`daily:${me.id}`} />
           </div>
         ) : <p className="text-cream/60 text-sm mt-2">Submit a withdrawal to see a receipt and tracker.</p>}
 

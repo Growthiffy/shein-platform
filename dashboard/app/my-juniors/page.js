@@ -13,6 +13,7 @@ export default function MyJuniors() {
   const [msgs, setMsgs] = useState([]);
   const [text, setText] = useState("");
   const box = useRef(null);
+  const fileRef = useRef(null);
   const typingSentAt = useRef(0);
 
   async function loadMentees() {
@@ -66,6 +67,14 @@ export default function MyJuniors() {
     refreshRoom(); loadMentees();
     setTimeout(() => box.current?.scrollTo(0, box.current.scrollHeight), 50);
   }
+  async function sendFile(e) {
+    const file = e.target.files?.[0]; e.target.value = "";
+    if (!file || !active) return;
+    if (file.size > 3 * 1024 * 1024) return alert("File too large (max 3MB).");
+    const image = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
+    await api(`/api/mentor-admin/room/${active._id}`, { method: "POST", body: { image, fileName: file.name, text: "" } }).catch(err => alert(err.message));
+    refreshRoom();
+  }
   function onKey(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }
 
   if (notMentor) return (
@@ -111,7 +120,10 @@ export default function MyJuniors() {
                       <div className={`px-3 py-2 rounded-xl max-w-[75%] ${mine ? "bg-gold/20 text-cream" : "bg-white/[0.04] border border-line"}`}>
                         <div className="text-[11px] mb-1 text-cream/45">{m.authorName || (mine ? mentor?.name : active.name)} · {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</div>
                         {m.replyTo?.text && <div className="mb-1 border-l-2 border-gold/50 pl-2 text-[11px] text-cream/50 truncate">{m.replyTo.authorName}: {m.replyTo.text}</div>}
-                        <div className="whitespace-pre-wrap break-words text-sm">{m.text}</div>
+                        {m.image && (m.image.startsWith("data:application/pdf")
+                          ? <a href={m.image} download={m.fileName || "file.pdf"} className="inline-flex items-center gap-1 underline text-xs text-gold">📄 {m.fileName || "document.pdf"}</a>
+                          : <img src={m.image} alt={m.fileName || ""} className="max-h-48 rounded-lg" />)}
+                        {m.text && <div className="whitespace-pre-wrap break-words text-sm">{m.text}</div>}
                       </div>
                     </div>
                   );
@@ -119,6 +131,8 @@ export default function MyJuniors() {
                 {!msgs.length && <div className="text-cream/50 text-sm">No messages yet. Say hello.</div>}
               </div>
               <div className="flex items-end gap-2 mt-3">
+                <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={sendFile} />
+                <button className="btn-ghost h-11 w-11 shrink-0 !px-0 grid place-items-center" onClick={() => fileRef.current?.click()} title="Attach">📎</button>
                 <textarea value={text} onChange={e => onType(e.target.value)} onKeyDown={onKey} rows={1}
                   placeholder="Reply as mentor…  (Enter to send, Shift+Enter new line)" className="flex-1 resize-none max-h-32" />
                 <button className="btn h-11 w-12 shrink-0 !px-0 grid place-items-center" onClick={send}><Send size={16} /></button>

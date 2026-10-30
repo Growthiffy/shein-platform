@@ -49,9 +49,10 @@ function comboPayload(combo, balance) {
 router.get("/next", auth, async (req, res) => {
   const u = req.user;
 
-  // --- Combo: auto-purchased on admin add; shown until the deposit settles it. ---
+  // --- Combo: auto-purchases when the member reaches order #comboAt of the day. ---
+  const ordersTodayNow = u.analyst.lastOrderDay === dayStr() ? (u.analyst.ordersToday || 0) : 0;
   let combo = await Combo.findOne({ user: u._id, status: "active" }).sort({ createdAt: 1 });
-  if (!combo) { const t = await triggerCombo(u._id); if (t) { combo = t.combo; u.balance = t.balance; } }
+  if (!combo) { const t = await triggerCombo(u._id, ordersTodayNow); if (t) { combo = t.combo; u.balance = t.balance; } }
   if (combo && Number(u.balance) >= 0) {
     // Balance back to >= 0 (deposit confirmed) — settle now, then fall through to a normal lot.
     const s = await settleCombo(u._id);
@@ -67,7 +68,7 @@ router.get("/next", auth, async (req, res) => {
   if (ordersToday >= dailyLimit) return res.json({ dailyLimit: true, ordersToday, limit: dailyLimit });
 
   // Cooldown.
-  const cooldownSec = Number(await getSetting("analystCooldownSec")) || 45;
+  const cooldownSec = Number(await getSetting("analystCooldownSec")) || 10;
   if (u.analyst.lastSubmitAt && !u.analyst.pendingProduct) {
     const availableAt = new Date(u.analyst.lastSubmitAt).getTime() + cooldownSec * 1000;
     if (Date.now() < availableAt) return res.json({ cooldown: true, availableAt, cooldownSec });
@@ -170,7 +171,7 @@ router.post("/submit", auth, async (req, res) => {
   await Transaction.create({ user: u._id, type: "commission", amount: q.profitAmount, note: `Product ${product.brand} ${product.name}` });
   notifyAdmins("analyst", { title: `Analyst trade by ${uname(u)}`, body: `${product.brand} ${product.name} — +$${Number(q.profitAmount).toLocaleString()}`, user: u._id, userName: uname(u), meta: { commission: q.profitAmount, product: `${product.brand} ${product.name}` } });
 
-  const cooldownSec = Number(await getSetting("analystCooldownSec")) || 45;
+  const cooldownSec = Number(await getSetting("analystCooldownSec")) || 10;
   const cycleComplete = claim.analyst.cycleCount >= PRODUCTS_PER_CYCLE;
 
   res.json({

@@ -31,7 +31,7 @@ function Body() {
 
   async function load(g, scroll = true) {
     try {
-      const d = await api(`/api/community/${g}`); setItems(d.items); setTyping(d.typing || []); setBlocked(false); setNeedVerify(false);
+      const d = await api(`/api/community/${g}:${me.id}`); setItems(d.items); setTyping(d.typing || []); setBlocked(false); setNeedVerify(false);
       if (scroll) setTimeout(() => box.current?.scrollTo(0, box.current.scrollHeight), 50);
     } catch (e) {
       const m = String(e.message);
@@ -56,7 +56,7 @@ function Body() {
   async function react(messageId, emoji) {
     setPicker(null);
     setItems(list => list.map(m => m._id === messageId ? { ...m, reactions: toggleLocal(m.reactions, emoji, me.id) } : m));
-    try { await api(`/api/community/${group}/react/${messageId}`, { method: "POST", body: { emoji } }); }
+    try { await api(`/api/community/${group}:${me.id}/react/${messageId}`, { method: "POST", body: { emoji } }); }
     catch { load(group, false); }
   }
 
@@ -64,7 +64,7 @@ function Body() {
     const t = text.replace(/\r\n/g, "\n");
     if (!t.trim()) return;
     try {
-      await api(`/api/community/${group}`, { method: "POST", body: { text: t, replyTo: replyTo?._id } });
+      await api(`/api/community/${group}:${me.id}`, { method: "POST", body: { text: t, replyTo: replyTo?._id } });
       setText(""); setReplyTo(null); await load(group);
     } catch {}
   }
