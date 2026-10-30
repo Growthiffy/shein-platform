@@ -58,6 +58,7 @@ app.use("/api/auth", authLimiter);
 app.use("/api/public",   require("./routes/public"));
 app.use("/api/stats",    require("./routes/stats"));
 app.use("/api/activity", require("./routes/activity"));
+app.use("/api/announcements", require("./routes/announcements"));
 app.use("/api/auth",     require("./routes/auth"));
 app.use("/api/me",       require("./routes/me"));
 app.use("/api/analyst",  require("./routes/analyst"));

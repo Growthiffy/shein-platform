@@ -6,6 +6,7 @@ import { LineChart, TrendingUp, Users, Crown, ArrowUpRight, Wallet, UserPlus } f
 import LiveStats from "@/components/dashboard/LiveStats";
 import ActivityFeed from "@/components/dashboard/ActivityFeed";
 import Onboarding from "@/components/dashboard/Onboarding";
+import { AnnouncementBanner, AnnouncementsSection } from "@/components/dashboard/Announcements";
 
 export default function DashboardPage() { return <AppShell><Body /></AppShell>; }
 
@@ -26,6 +27,7 @@ function Body() {
 
   return (
     <div className="page">
+      <AnnouncementBanner />
       {/* hero banner */}
       <div className="relative overflow-hidden rounded-2xl fadein">
         <img src="https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600&q=80" alt="" className="h-40 md:h-52 w-full object-cover" />
@@ -53,6 +55,7 @@ function Body() {
       <LiveStats />
       <Onboarding />
       <ActivityFeed />
+      <AnnouncementsSection />
 
       <h2 className="mt-10 font-display text-2xl text-gold">Your paths</h2>
       <div className="mt-4 grid gap-5 sm:grid-cols-2">

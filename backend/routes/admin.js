@@ -11,6 +11,7 @@ const Setting = require("../models/Setting");
 const Persona = require("../models/Persona");
 const LoginHistory = require("../models/LoginHistory");
 const SupportMessage = require("../models/SupportMessage");
+const Announcement = require("../models/Announcement");
 const { DEFAULTS } = require("../utils/settings");
 
 router.use(auth, admin);
@@ -344,6 +345,21 @@ router.put("/settings/:key", async (req, res) => {
   );
   res.json({ setting: row });
 });
+
+// Announcements
+router.get("/announcements", async (req, res) => res.json({ items: await Announcement.find().sort({ pinned: -1, publishedAt: -1 }) }));
+router.post("/announcements", async (req, res) => {
+  const { title, body, type, pinned, active, publishedAt } = req.body || {};
+  if (!title?.trim()) return res.status(400).json({ error: "title required" });
+  const item = await Announcement.create({
+    title: title.trim(), body: body || "", type: type || "news",
+    pinned: !!pinned, active: active !== false,
+    publishedAt: publishedAt ? new Date(publishedAt) : new Date(),
+  });
+  res.json({ item });
+});
+router.patch("/announcements/:id", async (req, res) => res.json({ item: await Announcement.findByIdAndUpdate(req.params.id, req.body, { new: true }) }));
+router.delete("/announcements/:id", async (req, res) => { await Announcement.findByIdAndDelete(req.params.id); res.json({ ok: true }); });
 
 // Personas (AI community members)
 router.get("/personas", async (req, res) => res.json({ items: await Persona.find().sort({ createdAt: -1 }) }));
