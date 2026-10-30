@@ -29,12 +29,13 @@ let CACHE = null;
 function build() {
   const out = [];
   for (let i = 0; i < SIZE; i++) {
-    const h = hash("shein-member-" + i);
-    const region = REGIONS[WEIGHTED[h % WEIGHTED.length]];
-    const first = region.first[(h >> 3) % region.first.length];
-    const lastInit = String.fromCharCode(65 + ((h >> 7) % 26));
-    const female = (h >> 11) % 2 === 0;
-    const portrait = (h >> 5) % 100;
+    // Separate salted hashes per field so consecutive members differ a lot
+    // (one weak hash of "member-<i>" barely changes between i and i+1).
+    const region = REGIONS[WEIGHTED[hash("reg-" + i) % WEIGHTED.length]];
+    const first = region.first[hash("first-" + i) % region.first.length];
+    const lastInit = String.fromCharCode(65 + (hash("last-" + i) % 26));
+    const female = hash("sex-" + i) % 2 === 0;
+    const portrait = hash("pic-" + i) % 100;
     out.push({
       id: "m" + i,
       name: `${first} ${lastInit}.`,

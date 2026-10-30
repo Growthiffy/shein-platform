@@ -40,6 +40,13 @@ export default function MyJuniors() {
   }
 
   useEffect(() => { loadMentees(); }, []);
+  // Deep-link from a mentor notification: /my-juniors?mentee=<id> opens that chat.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("mentee");
+    if (!id || !all.length) return;
+    const u = all.find(x => String(x._id) === String(id));
+    if (u) { setActiveMentor(u.mentorId); openRoom(u); }
+  }, [all.length]);
   // Poll the list for new messages / unread, and the open room for replies.
   useEffect(() => {
     const t = setInterval(() => { refreshRoom(); loadMentees(); }, 5000);

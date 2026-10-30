@@ -5,7 +5,7 @@ const AdminNotification = require("../models/AdminNotification");
 const { getSetting } = require("./settings");
 
 // All notifiable action types (used by the dashboard mute UI too).
-const TYPES = ["deposit", "withdrawal", "support", "community", "analyst", "combo", "verification", "signup", "login", "invest"];
+const TYPES = ["deposit", "withdrawal", "support", "community", "mentor", "analyst", "combo", "verification", "signup", "login", "invest"];
 
 const muteCache = new Map(); // type -> { muted, at }
 async function isMuted(type) {

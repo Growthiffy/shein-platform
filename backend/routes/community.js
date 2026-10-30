@@ -117,7 +117,14 @@ router.post("/:group", auth, async (req, res) => {
     authorType: "user", authorName,
     text, replyTo, mentions, image, fileName: image ? String(req.body?.fileName || "").slice(0, 120) : undefined,
   });
-  notifyAdmins("community", { title: `Community post by ${authorName}`, body: text.slice(0, 140), user: req.user._id, userName: authorName, meta: { group } });
+  // A mentor-room message is a mentor DM, not a community post — label it so the
+  // admin notification + deep-link go to the right place.
+  const isMentorRoom = group.startsWith("mentor:");
+  notifyAdmins(isMentorRoom ? "mentor" : "community", {
+    title: isMentorRoom ? `Mentor message from ${authorName}` : `Community post by ${authorName}`,
+    body: (text || (image ? "📎 attachment" : "")).slice(0, 140),
+    user: req.user._id, userName: authorName, meta: { group },
+  });
   res.json({ msg });
 });
 

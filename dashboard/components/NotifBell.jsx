@@ -4,8 +4,8 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { Bell, Trash2, BellOff } from "lucide-react";
 
-const ICON = { deposit: "💰", withdrawal: "🏦", support: "💬", community: "👥", analyst: "📈", combo: "⭐", verification: "🪪", signup: "✨", login: "🔑", invest: "📊" };
-const ROUTE = { deposit: "/tx", withdrawal: "/tx", support: "/support", community: "/community", invest: "/tx" };
+const ICON = { deposit: "💰", withdrawal: "🏦", support: "💬", community: "👥", mentor: "🎓", analyst: "📈", combo: "⭐", verification: "🪪", signup: "✨", login: "🔑", invest: "📊" };
+const ROUTE = { deposit: "/tx", withdrawal: "/tx", support: "/support", community: "/community", mentor: "/my-juniors", invest: "/tx" };
 
 export default function NotifBell() {
   const r = useRouter();
@@ -41,6 +41,12 @@ export default function NotifBell() {
       if (g) qs.set("group", g);
       if (member) qs.set("member", member);
       r.push(`/community${qs.toString() ? "?" + qs : ""}`);
+      return;
+    }
+    if (it.type === "mentor") {
+      const g = String(meta.group || "");
+      const mentee = g.startsWith("mentor:") ? g.split(":")[2] : (it.user || "");
+      r.push(mentee ? `/my-juniors?mentee=${mentee}` : "/my-juniors");
       return;
     }
     if (it.type === "support") { r.push(it.user ? `/support?user=${it.user}` : "/support"); return; }

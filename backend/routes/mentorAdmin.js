@@ -13,17 +13,27 @@ const { heartbeat, clear } = require("../utils/presence");
 
 router.use(auth, admin);
 
-// Every mentor profile this operator controls (an admin may own several).
+// A full-access (owner) admin controls ALL mentors; a restricted admin controls
+// only the mentors explicitly assigned to them.
+function isFullAccess(user) {
+  const p = user.permissions;
+  return !p || p.length === 0 || p.includes("*");
+}
+
+// Every mentor profile this operator controls.
 async function myMentors(user) {
-  return Mentor.find({ owner: user._id }).sort({ createdAt: 1 });
+  const q = isFullAccess(user) ? {} : { owner: user._id };
+  return Mentor.find(q).sort({ createdAt: 1 });
 }
 function roomFor(mentorId, userId) { return `mentor:${mentorId}:${userId}`; }
 
-// The specific owned mentor a given mentee belongs to (or null if not mine).
+// The specific mentor a given mentee belongs to (or null if not accessible to me).
 async function mentorForMentee(user, userId) {
   const u = await User.findById(userId).select("username email avatar mentor");
   if (!u || !u.mentor) return { u: null, m: null };
-  const m = await Mentor.findOne({ _id: u.mentor, owner: user._id });
+  const m = isFullAccess(user)
+    ? await Mentor.findById(u.mentor)
+    : await Mentor.findOne({ _id: u.mentor, owner: user._id });
   return { u, m };
 }
 
