@@ -10,7 +10,7 @@ export default function Users() {
   const [sel, setSel] = useState(null);
   const [q, setQ] = useState("");
   const [logins, setLogins] = useState([]);
-  async function load() { const d = await api("/api/admin/users"); setItems(d.items); if (sel) setSel(d.items.find(u => u._id === sel._id) || null); }
+  async function load() { try { const d = await api("/api/admin/users"); setItems(d.items); if (sel) setSel(d.items.find(u => u._id === sel._id) || null); } catch {} }
   useEffect(() => { load(); api("/api/admin/mentors").then(d => setMentors(d.items)).catch(() => {}); }, []);
 
   function select(u) { setSel(u); setLogins([]); api(`/api/admin/users/${u._id}/logins`).then(d => setLogins(d.items)).catch(() => {}); }
