@@ -40,7 +40,7 @@ export default function ActivityFeed() {
       setItems(d.items || []);
     }).catch(() => {});
     load();
-    const t = setInterval(load, 20000);
+    const t = setInterval(load, 8000);
     return () => { alive = false; clearInterval(t); };
   }, []);
 
@@ -60,7 +60,8 @@ export default function ActivityFeed() {
           return (
             <div key={k} className={`flex items-center gap-2.5 py-1.5 ${isNew ? "toast-in" : ""}`}>
               {it.avatar
-                ? <img src={it.avatar} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover ring-1 ring-line" loading="lazy" />
+                ? <img src={it.avatar} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover ring-1 ring-line" loading="lazy"
+                    onError={e => { e.currentTarget.replaceWith(Object.assign(document.createElement("span"), { className: "h-6 w-6 shrink-0 rounded-full bg-gold2/20 text-gold2 text-[10px] grid place-items-center", textContent: (it.name || "?").charAt(0).toUpperCase() })); }} />
                 : <span className={`h-2 w-2 shrink-0 rounded-full ${DOT[it.type] || "bg-cream/40"}`} />}
               <span className="text-sm text-cream/75 flex-1 min-w-0">
                 <span className="truncate block">{text(it)}</span>

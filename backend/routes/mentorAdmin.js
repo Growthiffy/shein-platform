@@ -8,6 +8,7 @@ const { auth, admin } = require("../middleware/auth");
 const User = require("../models/User");
 const Mentor = require("../models/Mentor");
 const ChatMessage = require("../models/ChatMessage");
+const MentorRead = require("../models/MentorRead");
 const { heartbeat, clear } = require("../utils/presence");
 
 router.use(auth, admin);
@@ -33,7 +34,9 @@ router.get("/me", async (req, res) => {
   res.json({ mentor: mentors[0] || null, mentors });
 });
 
-// Members across all mentors I own, each tagged with the mentor they chose.
+// Members across all mentors I own, each tagged with the mentor they chose and a
+// WhatsApp-style unread count (member messages since the operator last opened the
+// room). Also returns a per-mentor summary: member count + total unread.
 router.get("/mentees", async (req, res) => {
   const list = await myMentors(req.user);
   if (!list.length) return res.json({ mentor: null, mentors: [], items: [] });
@@ -41,25 +44,36 @@ router.get("/mentees", async (req, res) => {
   const users = await User.find({ mentor: { $in: list.map(m => m._id) }, role: "customer" })
     .select("username email avatar verification accountNumber createdAt mentor").sort({ createdAt: -1 }).limit(500);
 
+  // Read markers for this operator's mentees, keyed by mentee id.
+  const reads = await MentorRead.find({ mentor: { $in: list.map(m => m._id) }, mentee: { $in: users.map(u => u._id) } }).select("mentee lastReadAt");
+  const readBy = new Map(reads.map(r => [String(r.mentee), r.lastReadAt]));
+
   const items = await Promise.all(users.map(async u => {
     const m = mById.get(String(u.mentor));
     const group = roomFor(u.mentor, u._id);
-    const last = await ChatMessage.findOne({ group }).sort({ createdAt: -1 }).select("text authorType createdAt");
-    const waiting = !!last && last.authorType === "user";
+    const last = await ChatMessage.findOne({ group }).sort({ createdAt: -1 }).select("text authorType createdAt image fileName");
+    const readAt = readBy.get(String(u._id));
+    const unread = await ChatMessage.countDocuments({ group, authorType: "user", ...(readAt ? { createdAt: { $gt: readAt } } : {}) });
+    const preview = last ? (last.text ? String(last.text).slice(0, 80) : (last.image ? (last.fileName || "📎 attachment") : "")) : null;
     return {
       _id: u._id, name: u.username || (u.email || "").split("@")[0], avatar: u.avatar || null,
       accountNumber: u.accountNumber, verification: u.verification?.level || "none",
       mentorId: String(u.mentor), mentorName: m ? m.name : "Mentor",
-      lastText: last ? String(last.text).slice(0, 80) : null,
-      lastAt: last ? last.createdAt : null, waiting,
+      lastText: preview, lastAt: last ? last.createdAt : null,
+      lastFromMember: !!last && last.authorType === "user", unread,
     };
   }));
-  items.sort((a, b) => (b.waiting - a.waiting) || (new Date(b.lastAt || 0) - new Date(a.lastAt || 0)));
-  res.json({
-    mentor: { _id: list[0]._id, name: list[0].name, title: list[0].title, avatar: list[0].avatar },
-    mentors: list.map(m => ({ _id: m._id, name: m.name, title: m.title, avatar: m.avatar })),
-    items,
+  items.sort((a, b) => (b.unread - a.unread) || (new Date(b.lastAt || 0) - new Date(a.lastAt || 0)));
+
+  // Per-mentor tallies for the top switcher.
+  const mentors = list.map(m => {
+    const mine = items.filter(it => it.mentorId === String(m._id));
+    return {
+      _id: m._id, name: m.name, title: m.title, avatar: m.avatar,
+      memberCount: mine.length, unread: mine.reduce((s, it) => s + it.unread, 0),
+    };
   });
+  res.json({ mentor: mentors[0] || null, mentors, items });
 });
 
 // Load a mentee's 1:1 room (member must belong to a mentor I own).
@@ -68,6 +82,8 @@ router.get("/room/:userId", async (req, res) => {
   if (!m) return res.status(404).json({ error: "not your mentee" });
   const group = roomFor(m._id, u._id);
   const items = await ChatMessage.find({ group }).sort({ createdAt: -1 }).limit(200);
+  // Opening the room marks it read (WhatsApp-style).
+  await MentorRead.updateOne({ mentor: m._id, mentee: u._id }, { $set: { lastReadAt: new Date() } }, { upsert: true }).catch(() => {});
   res.json({
     mentee: { _id: u._id, name: u.username || (u.email || "").split("@")[0], avatar: u.avatar || null },
     mentor: { _id: m._id, name: m.name, avatar: m.avatar },

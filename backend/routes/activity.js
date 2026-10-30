@@ -58,11 +58,13 @@ router.get("/feed", auth, async (req, res) => {
     at: t.createdAt, real: true,
   }));
 
-  // Pad with fabricated pool identities. Seeded per MINUTE so the feed churns
-  // every minute (a fresh item set each poll), not once an hour.
+  // Pad with fabricated pool identities. Reseeded on a fast bucket (~9s) so the
+  // feed keeps moving, with IRREGULAR arrival gaps — the newest item is sometimes
+  // seconds old, sometimes a minute — so it never looks like a fixed interval.
   const items = [...real];
-  const minSeed = Math.floor(Date.now() / (60 * 1000));
-  const rng = mulberry32(minSeed);
+  const now = Date.now();
+  const bucket = Math.floor(now / 9000);
+  const rng = mulberry32((bucket ^ 0x1f2e3d4c) >>> 0);
   // Only "big" events — big deposits, withdrawals, investments, level-ups.
   const FILLERS = [
     () => ({ type: "deposit_approved", amount: [500, 750, 1000, 1500, 2500, 5000][Math.floor(rng() * 6)] }),
@@ -72,18 +74,22 @@ router.get("/feed", auth, async (req, res) => {
   ];
   let n = Math.floor(rng() * 1e9);
   const need = Math.max(16 - real.length, 12);
+  // First gap is small and random (2–45s) → head feels fresh; later gaps grow
+  // irregularly so the stream looks organic, not metronomic.
+  let secAgo = 2 + Math.floor(rng() * 43);
   for (let i = 0; i < need; i++) {
     const f = FILLERS[Math.floor(rng() * FILLERS.length)]();
-    const minsAgo = Math.floor(rng() * 90) + 1;
     const id = identity(n += 7919);
     const wd = f.type === "withdrawal_complete", dp = f.type === "deposit_approved";
+    const at = new Date(now - secAgo * 1000);
     items.push({
       name: id.name, avatar: id.avatar, flag: id.flag,
-      address: (wd || dp) ? fakeAddress(id.id + ":" + minsAgo) : undefined,
-      timeAgo: minsAgo < 60 ? `${minsAgo} min ago` : `${Math.floor(minsAgo / 60)} hr ago`,
-      at: new Date(Date.now() - minsAgo * 60000), real: false,
+      address: (wd || dp) ? fakeAddress(id.id + ":" + secAgo) : undefined,
+      timeAgo: timeAgo(at), at, real: false,
       ...f,
     });
+    // Next event is anywhere from ~8s to ~5min older — random cadence.
+    secAgo += 8 + Math.floor(rng() * rng() * 300);
   }
 
   items.sort((a, b) => new Date(b.at) - new Date(a.at));
