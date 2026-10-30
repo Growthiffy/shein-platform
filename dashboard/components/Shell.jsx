@@ -48,7 +48,10 @@ export default function Shell({ children }) {
 
   const full = !me || me.fullAccess !== false;
   const can = (n) => {
-    if (n.mentorOnly) return isMentor;
+    // Owners always see My Juniors (owner-sees-all mentors); restricted admins see
+    // it only when assigned a mentor. Not gated purely on the async isMentor, so it
+    // never flickers out for owners on navigation.
+    if (n.mentorOnly) return full || isMentor;
     if (!n.perm) return true;
     if (full) return true;
     if (n.ownerOnly) return false;
