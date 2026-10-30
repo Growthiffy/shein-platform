@@ -13,7 +13,7 @@
 // a conservative budget and caching this keeps usage well under free limits.
 
 const API_KEY = () => process.env.GEMINI_API_KEY || "";
-const MODEL = () => process.env.GEMINI_MODEL || "gemini-2.0-flash-lite";
+const MODEL = () => process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
 const DAILY_BUDGET = () => Number(process.env.AI_DAILY_BUDGET || 300);
 const TIMEOUT_MS = 4000;
 const CACHE_MAX = 500;
