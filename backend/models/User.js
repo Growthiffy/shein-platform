@@ -88,6 +88,10 @@ const UserSchema = new mongoose.Schema({
   // RBAC. `role` is the source of truth; `isAdmin` kept in sync for backward compat.
   role:    { type: String, enum: ["customer", "admin"], default: "customer" },
   isAdmin: { type: Boolean, default: false },
+  // Fine-grained admin permissions. Empty/undefined OR containing "*" = full
+  // access (owner). A non-empty list without "*" restricts the operator to the
+  // listed areas. Ignored for non-admins.
+  permissions: [{ type: String }],
 }, { timestamps: true });
 
 // Keep role <-> isAdmin consistent regardless of which field a writer sets.

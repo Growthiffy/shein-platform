@@ -6,53 +6,108 @@ import { ShieldCheck, Trash2 } from "lucide-react";
 
 export default function Admins() {
   const [items, setItems] = useState([]);
-  const [form, setForm] = useState({ email: "", username: "", password: "" });
+  const [perms, setPerms] = useState([]);
+  const [meFull, setMeFull] = useState(true);
+  const [form, setForm] = useState({ email: "", username: "", password: "", fullAccess: true, permissions: [] });
   const [msg, setMsg] = useState("");
 
-  async function load() { setItems((await api("/api/admin/admins")).items); }
+  async function load() {
+    setItems((await api("/api/admin/admins")).items);
+    const p = await api("/api/admin/permissions").catch(() => null);
+    if (p) { setPerms(p.permissions); setMeFull(p.me.fullAccess); }
+  }
   useEffect(() => { load(); }, []);
 
   async function create() {
     setMsg("");
-    try { await api("/api/admin/admins", { method: "POST", body: form }); setForm({ email: "", username: "", password: "" }); setMsg("operator created ✓"); await load(); }
-    catch (e) { setMsg(e.message); }
+    try {
+      const body = { email: form.email, username: form.username, password: form.password, permissions: form.fullAccess ? [] : form.permissions };
+      await api("/api/admin/admins", { method: "POST", body });
+      setForm({ email: "", username: "", password: "", fullAccess: true, permissions: [] }); setMsg("operator created ✓"); await load();
+    } catch (e) { setMsg(e.message); }
   }
   async function remove(id) {
     if (!confirm("Remove this admin operator?")) return;
     try { await api(`/api/admin/admins/${id}`, { method: "DELETE" }); await load(); }
     catch (e) { alert(e.message); }
   }
+  async function savePerms(op, fullAccess, permissions) {
+    try { await api(`/api/admin/admins/${op._id}`, { method: "PATCH", body: { fullAccess, permissions } }); await load(); }
+    catch (e) { alert(e.message); }
+  }
 
   return (
     <Shell>
       <div className="flex items-center gap-2 mb-1"><ShieldCheck size={20} className="text-gold" /><h1 className="text-2xl text-gold font-display">Admin Operators</h1></div>
-      <p className="text-cream/50 text-sm mb-5">Backend operators — separate from members. They have no wallet, salary, or analyst access.</p>
+      <p className="text-cream/50 text-sm mb-5">Backend operators — separate from members. Scope each operator's access with permissions; full access = owner.</p>
 
       <div className="grid lg:grid-cols-3 gap-4">
-        <div className="card overflow-x-auto lg:col-span-2">
-          <table>
-            <thead><tr><th>Username</th><th>Email</th><th>Since</th><th></th></tr></thead>
-            <tbody>
-              {items.map(a => (
-                <tr key={a._id}>
-                  <td>{a.username || "—"}</td><td>{a.email || "—"}</td>
-                  <td>{new Date(a.createdAt).toLocaleDateString()}</td>
-                  <td><button className="btn-ghost text-xs" onClick={() => remove(a._id)}><Trash2 size={13} /></button></td>
-                </tr>
-              ))}
-              {!items.length && <tr><td colSpan={4} className="text-cream/50">No operators.</td></tr>}
-            </tbody>
-          </table>
+        <div className="card p-4 lg:col-span-2 space-y-3">
+          {items.map(a => (
+            <OperatorRow key={a._id} op={a} perms={perms} canEdit={meFull} onSave={savePerms} onRemove={() => remove(a._id)} />
+          ))}
+          {!items.length && <div className="text-cream/50">No operators.</div>}
         </div>
+
         <div className="card p-4 space-y-3 h-max">
           <div className="text-gold">Add operator</div>
           <label className="text-sm block">Username *<input className="w-full mt-1" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} required /></label>
           <label className="text-sm block">Email (optional)<input className="w-full mt-1" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></label>
           <label className="text-sm block">Password (min 8)<input type="password" className="w-full mt-1" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.fullAccess} onChange={e => setForm({ ...form, fullAccess: e.target.checked })} /> Full access (owner)</label>
+          {!form.fullAccess && (
+            <div className="grid grid-cols-2 gap-1">
+              {perms.map(p => (
+                <label key={p.key} className="flex items-center gap-1.5 text-xs">
+                  <input type="checkbox" checked={form.permissions.includes(p.key)}
+                    onChange={e => setForm(f => ({ ...f, permissions: e.target.checked ? [...f.permissions, p.key] : f.permissions.filter(x => x !== p.key) }))} />
+                  {p.label}
+                </label>
+              ))}
+            </div>
+          )}
           <button className="btn w-full" onClick={create}>Create operator</button>
           {msg && <div className="text-cream/60 text-sm">{msg}</div>}
         </div>
       </div>
     </Shell>
+  );
+}
+
+function OperatorRow({ op, perms, canEdit, onSave, onRemove }) {
+  const [open, setOpen] = useState(false);
+  const [full, setFull] = useState(op.fullAccess);
+  const [sel, setSel] = useState(op.permissions || []);
+  useEffect(() => { setFull(op.fullAccess); setSel(op.permissions || []); }, [op]);
+  return (
+    <div className="rounded-lg border border-line p-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-cream font-medium">{op.username || "—"} <span className="text-cream/40 text-xs">{op.email || ""}</span></div>
+          <div className="text-xs text-cream/50">{op.fullAccess ? "Full access (owner)" : (op.permissions?.length ? op.permissions.join(", ") : "No permissions")}</div>
+        </div>
+        <div className="flex gap-2">
+          {canEdit && <button className="btn-ghost text-xs" onClick={() => setOpen(o => !o)}>{open ? "Close" : "Permissions"}</button>}
+          <button className="btn-ghost text-xs" onClick={onRemove}><Trash2 size={13} /></button>
+        </div>
+      </div>
+      {open && canEdit && (
+        <div className="mt-3 border-t border-line pt-3 space-y-2">
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={full} onChange={e => setFull(e.target.checked)} /> Full access (owner)</label>
+          {!full && (
+            <div className="grid grid-cols-2 gap-1">
+              {perms.map(p => (
+                <label key={p.key} className="flex items-center gap-1.5 text-xs">
+                  <input type="checkbox" checked={sel.includes(p.key)}
+                    onChange={e => setSel(s => e.target.checked ? [...s, p.key] : s.filter(x => x !== p.key))} />
+                  {p.label}
+                </label>
+              ))}
+            </div>
+          )}
+          <button className="btn text-xs" onClick={() => onSave(op, full, sel)}>Save permissions</button>
+        </div>
+      )}
+    </div>
   );
 }

@@ -14,8 +14,42 @@ const SupportMessage = require("../models/SupportMessage");
 const Announcement = require("../models/Announcement");
 const { DEFAULTS } = require("../utils/settings");
 const { sendDepositApproved, sendWithdrawalStatus } = require("../utils/mailer");
+const { PERMISSIONS, KEYS, isFullAccess, hasAccess } = require("../config/permissions");
 
 router.use(auth, admin);
+
+// RBAC gate: map the request path to a permission area and enforce it. Operators
+// with full access (owner) pass everything; the overview/stats + permissions
+// list stay open to any admin.
+const AREA = [
+  [/^\/stats/, null],
+  [/^\/permissions/, null],
+  [/^\/users/, "members"],
+  [/^\/broadcast/, "members"],
+  [/^\/admins/, "admins"],
+  [/^\/products/, "products"],
+  [/^\/tx/, "transactions"],
+  [/^\/deposit-wallets/, "wallets"],
+  [/^\/mentors/, "mentors"],
+  [/^\/chat/, "community"],
+  [/^\/announcements/, "announcements"],
+  [/^\/personas/, "personas"],
+  [/^\/support/, "support"],
+  [/^\/referrals/, "referrals"],
+  [/^\/login-history/, "login_history"],
+  [/^\/settings/, "settings"],
+];
+router.use((req, res, next) => {
+  const entry = AREA.find(([re]) => re.test(req.path));
+  const perm = entry ? entry[1] : null;
+  // Managing admins always requires full (owner) access.
+  if (perm === "admins" && !isFullAccess(req.user)) return res.status(403).json({ error: "owner access required" });
+  if (hasAccess(req.user, perm)) return next();
+  res.status(403).json({ error: `missing permission: ${perm}` });
+});
+
+// Permission catalogue (for the Admins UI).
+router.get("/permissions", (req, res) => res.json({ permissions: PERMISSIONS, me: { fullAccess: isFullAccess(req.user), permissions: req.user.permissions || [] } }));
 
 // Dashboard stats.
 router.get("/stats", async (req, res) => {
@@ -136,23 +170,36 @@ router.post("/broadcast", async (req, res) => {
 
 // Admin operators (backend users). Separate from members.
 router.get("/admins", async (req, res) => {
-  const items = await User.find({ role: "admin" }).select("email username createdAt").sort({ createdAt: 1 });
-  res.json({ items });
+  const items = await User.find({ role: "admin" }).select("email username createdAt permissions").sort({ createdAt: 1 });
+  res.json({ items: items.map(o => ({ _id: o._id, email: o.email, username: o.username, createdAt: o.createdAt, permissions: o.permissions || [], fullAccess: isFullAccess(o) })) });
 });
 router.post("/admins", async (req, res) => {
   const email = (req.body?.email || "").trim().toLowerCase() || undefined;
-  const { username, password } = req.body || {};
+  const { username, password, permissions } = req.body || {};
   if (!username) return res.status(400).json({ error: "username required" });
   if (!password) return res.status(400).json({ error: "password required" });
   if (String(password).length < 8) return res.status(400).json({ error: "password must be at least 8 characters" });
   if (email && await User.findOne({ email })) return res.status(409).json({ error: "email already in use" });
   if (await User.findOne({ username: username.trim() })) return res.status(409).json({ error: "username already in use" });
+  const perms = Array.isArray(permissions) ? permissions.filter(p => KEYS.includes(p)) : [];
   const op = await User.create({
     email: email || undefined, username: username.trim(),
     passwordHash: await bcrypt.hash(String(password), 10),
     role: "admin", isAdmin: true, emailVerified: true, rewardCredit: 0,
+    permissions: perms, // empty = full access
   });
-  res.json({ item: { _id: op._id, email: op.email, username: op.username, createdAt: op.createdAt } });
+  res.json({ item: { _id: op._id, email: op.email, username: op.username, createdAt: op.createdAt, permissions: op.permissions, fullAccess: isFullAccess(op) } });
+});
+// Update an operator's permissions. fullAccess:true clears the list (owner); else
+// store the validated subset.
+router.patch("/admins/:id", async (req, res) => {
+  const op = await User.findById(req.params.id);
+  if (!op || op.role !== "admin") return res.status(404).json({ error: "no admin" });
+  const { fullAccess, permissions } = req.body || {};
+  if (fullAccess) op.permissions = [];
+  else op.permissions = (Array.isArray(permissions) ? permissions : []).filter(p => KEYS.includes(p));
+  await op.save();
+  res.json({ item: { _id: op._id, email: op.email, username: op.username, permissions: op.permissions, fullAccess: isFullAccess(op) } });
 });
 router.delete("/admins/:id", async (req, res) => {
   if (String(req.params.id) === String(req.user._id)) return res.status(400).json({ error: "cannot remove yourself" });
@@ -177,6 +224,12 @@ router.post("/users/:id/notify", async (req, res) => {
 
 // Members (customers only — admin operators are managed separately under /admins).
 router.get("/users", async (req, res) => res.json({ items: await User.find({ role: "customer" }).sort({ createdAt: -1 }).limit(500) }));
+
+// A member's login history (IP / device / time).
+router.get("/users/:id/logins", async (req, res) => {
+  const items = await LoginHistory.find({ user: req.params.id }).sort({ createdAt: -1 }).limit(100);
+  res.json({ items });
+});
 
 // Only these fields may be set through the member edit form. role/isAdmin are NOT
 // here: members and admin operators are separate — promote/create operators under

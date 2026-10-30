@@ -161,6 +161,8 @@ function publicUser(u) {
     level: u.level, dailySalary: u.dailySalary, totalEarned: u.totalEarned,
     emailVerified: u.emailVerified, mentor: u.mentor,
     isAdmin: u.isAdmin, role: u.role || (u.isAdmin ? "admin" : "customer"),
+    permissions: u.permissions || [],
+    fullAccess: !u.permissions || u.permissions.length === 0 || u.permissions.includes("*"),
     investment: u.investment, payoutWallets: u.payoutWallets,
     analyst: { cycleCount: u.analyst?.cycleCount || 0 },
     rewardCredit: u.rewardCredit || 0,
