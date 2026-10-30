@@ -19,6 +19,7 @@ const AccountChange = require("../models/AccountChange");
 const Page = require("../models/Page");
 const ContactMessage = require("../models/ContactMessage");
 const { logChange } = require("../utils/ledger");
+const { triggerCombo, settleCombo } = require("../utils/combo");
 const AdminNotification = require("../models/AdminNotification");
 const { TYPES: NOTIF_TYPES } = require("../utils/adminNotify");
 const { DEFAULTS, getSettings } = require("../utils/settings");
@@ -529,7 +530,9 @@ router.post("/users/:id/adjust-balance", async (req, res) => {
   await u.save();
   await Transaction.create({ user: u._id, type: "adjustment", amount: Number(amount || 0), note: note || "admin adjust" });
   await logChange(u._id, old, Number(amount || 0), u.balance, note || "Admin Adjustment");
-  res.json({ user: u });
+  // Crediting a member who has a combo deficit auto-settles it.
+  if (Number(amount || 0) > 0) await settleCombo(u._id).catch(() => {});
+  res.json({ user: await User.findById(u._id) });
 });
 
 router.post("/users/:id/adjust-next-product", async (req, res) => {
@@ -581,6 +584,8 @@ router.post("/tx/:id/approve", async (req, res) => {
     await u.save();
     await logChange(u._id, old, tx.amount, u.balance, "Deposit Approved");
     sendDepositApproved(u, tx.amount).catch(() => {});
+    // If this deposit clears a combo deficit, auto-settle it (returns balance + commission).
+    await settleCombo(u._id).catch(() => {});
   }
   await tx.save();
   res.json({ tx });
@@ -618,7 +623,12 @@ router.post("/tx/:id/stage", async (req, res) => {
   if (stage === "completed" && tx.status === "pending") {
     if (tx.type === "deposit") {
       const u = await User.findById(tx.user);
-      if (u) { u.balance = +(u.balance + tx.amount).toFixed(2); await u.save(); }
+      if (u) {
+        const old = u.balance;
+        u.balance = +(u.balance + tx.amount).toFixed(2); await u.save();
+        await logChange(u._id, old, tx.amount, u.balance, "Deposit Approved");
+        await settleCombo(u._id).catch(() => {});
+      }
       tx.status = "approved";
     } else {
       tx.status = "complete";
@@ -720,7 +730,10 @@ router.post("/combos", async (req, res) => {
     commission: Number(commission) || 20,
     products: Array.isArray(products) && products.length ? products : [{ name: "Deluxe Combo Lot", value: Number(negativeAmount) }],
   });
-  res.json({ item });
+  // Auto-purchase immediately: deduct the combo price so the member's balance goes
+  // negative right away (unavoidable); they must deposit to settle.
+  const triggered = await triggerCombo(userId).catch(() => null);
+  res.json({ item, triggered: !!triggered, balance: triggered?.balance });
 });
 router.patch("/combos/:id", async (req, res) => res.json({ item: await Combo.findByIdAndUpdate(req.params.id, req.body, { new: true }) }));
 router.delete("/combos/:id", async (req, res) => { await Combo.findByIdAndDelete(req.params.id); res.json({ ok: true }); });

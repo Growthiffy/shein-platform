@@ -324,12 +324,12 @@ function ComboCard({ next, onComplete, busy, err }) {
           </div>
           {blocked ? (
             <div className="mt-4 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
-              <div className="text-amber-600 font-semibold text-sm">Deposit ${Number(next.needRecharge).toLocaleString()} to unlock this lot</div>
-              <p className="text-xs text-cream/60 mt-0.5">This premium lot exceeds your balance. Top up the shortfall, then complete it to receive the full value back plus the commission.</p>
+              <div className="text-amber-600 font-semibold text-sm">Deposit ${Number(next.needRecharge).toLocaleString()} to complete this order</div>
+              <p className="text-xs text-cream/60 mt-0.5">This deluxe lot was auto-purchased, so your balance is negative. Deposit the shortfall — once an admin confirms it, your balance is returned plus the ${Number(next.commission).toLocaleString()} commission, automatically.</p>
               <Link href="/wallet/deposit" className="btn-gold mt-3 inline-flex text-sm">Deposit now</Link>
             </div>
           ) : (
-            <button className="btn-gold mt-4 w-full disabled:opacity-50" disabled={busy} onClick={onComplete}>{busy ? "Completing…" : "COMPLETE COMBO LOT"}</button>
+            <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-500">Deposit received — your order will settle and credit your balance + ${Number(next.commission).toLocaleString()} commission once confirmed.</div>
           )}
           {err && <div className="text-red-400 text-sm mt-2">{err}</div>}
         </div>

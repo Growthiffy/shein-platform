@@ -10,6 +10,7 @@ const { PRODUCTS_PER_CYCLE } = require("../config/levels");
 const { getSetting } = require("../utils/settings");
 const { ensureProductMeta, validateComment, qualityScore } = require("../utils/analystContent");
 const { logChange } = require("../utils/ledger");
+const { triggerCombo, settleCombo } = require("../utils/combo");
 const { notifyAdmins } = require("../utils/adminNotify");
 const uname = u => u.username || (u.email ? u.email.split("@")[0] : "member");
 
@@ -19,6 +20,15 @@ const r2 = n => Math.round(Number(n || 0) * 100) / 100;
 const dayStr = () => new Date().toISOString().slice(0, 10);
 const comboCommission = c => r2((Number(c.negativeAmount) > 0 ? Number(c.negativeAmount) : Number(c.comboPrice)) * (Number(c.commission || 20) / 100));
 
+// Premium fallback images for a combo lot when none is set on the product.
+const COMBO_IMGS = [
+  "https://images.unsplash.com/photo-1732246449812-322e6ef728f9?w=700&q=80&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1645276241987-7a7c14bf88f9?w=700&q=80&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1698877577733-65ae7dee328c?w=700&q=80&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1732139637224-95da5661d5ed?w=700&q=80&auto=format&fit=crop",
+];
+const comboImg = id => COMBO_IMGS[Math.abs(String(id).split("").reduce((a, c) => a + c.charCodeAt(0), 0)) % COMBO_IMGS.length];
+
 // Shape the combo for the client. shortfall = how far below 0 the balance is.
 function comboPayload(combo, balance) {
   const p = (combo.products && combo.products[0]) || {};
@@ -26,7 +36,7 @@ function comboPayload(combo, balance) {
   const shortfall = Math.max(0, -Number(balance));
   return {
     combo: true, comboId: String(combo._id), blocked: shortfall > 0,
-    product: { id: "combo:" + combo._id, brand: "Shein Deluxe", name: p.name || "Combo Lot", image: p.image || null, originalPrice: combo.comboPrice, isLatest: true, category: "fashion", marketBrief: "Premium combo lot — high-commission deluxe order." },
+    product: { id: "combo:" + combo._id, brand: "Shein Deluxe", name: p.name || "Combo Lot", image: p.image || comboImg(combo._id), originalPrice: combo.comboPrice, isLatest: true, category: "fashion", marketBrief: "Premium combo lot — high-commission deluxe order." },
     comboPrice: r2(combo.comboPrice), commission, needRecharge: r2(shortfall), balance: r2(balance),
     message: shortfall > 0
       ? `Deluxe combo lot — add $${shortfall.toLocaleString()} to your balance, then complete it to unlock $${commission.toLocaleString()} commission.`
@@ -39,35 +49,15 @@ function comboPayload(combo, balance) {
 router.get("/next", auth, async (req, res) => {
   const u = req.user;
 
-  // --- Combo: active one always shows; else a pending one that is now due. ---
-  // "Due" = the member's NEXT order of the day has reached comboAt (matches
-  // Cushman: comboAt is the order number today, so comboAt <= ordersToday + 1).
-  const ordersTodayNow = u.analyst.lastOrderDay === dayStr() ? (u.analyst.ordersToday || 0) : 0;
-  let combo = await Combo.findOne({ user: u._id, status: "active" }).sort({ comboAt: 1 });
-  if (!combo) combo = await Combo.findOne({ user: u._id, status: "pending", comboAt: { $lte: ordersTodayNow + 1 } }).sort({ comboAt: 1 });
-  if (combo) {
-    if (combo.status === "pending") {
-      // Trigger: deduct comboPrice (= balance-at-trigger + negativeAmount) so the
-      // balance drops to exactly -negativeAmount. Member must top up to >= 0 to complete.
-      const startBal = r2(u.balance);
-      const comboPrice = r2(startBal + Number(combo.negativeAmount || 0));
-      const claimed = await Combo.findOneAndUpdate(
-        { _id: combo._id, status: "pending" },
-        { $set: { status: "active", comboPrice, startBalance: startBal } },
-        { new: true }
-      );
-      if (claimed) {
-        const updated = await User.findByIdAndUpdate(u._id, { $inc: { balance: -comboPrice } }, { new: true });
-        await logChange(u._id, startBal, -comboPrice, updated.balance, "Combo Order Started");
-        u.balance = updated.balance; combo = claimed;
-      } else {
-        combo = await Combo.findById(combo._id);
-        const fresh = await User.findById(u._id).select("balance"); if (fresh) u.balance = fresh.balance;
-      }
-    }
-    combo._cycle = u.analyst.cycleCount || 0;
-    return res.json(comboPayload(combo, u.balance));
+  // --- Combo: auto-purchased on admin add; shown until the deposit settles it. ---
+  let combo = await Combo.findOne({ user: u._id, status: "active" }).sort({ createdAt: 1 });
+  if (!combo) { const t = await triggerCombo(u._id); if (t) { combo = t.combo; u.balance = t.balance; } }
+  if (combo && Number(u.balance) >= 0) {
+    // Balance back to >= 0 (deposit confirmed) — settle now, then fall through to a normal lot.
+    const s = await settleCombo(u._id);
+    if (s) { u.balance = s.balance; combo = null; }
   }
+  if (combo) return res.json(comboPayload(combo, u.balance));
 
   if (u.analyst.cycleCount >= PRODUCTS_PER_CYCLE) return res.json({ done: true, cycleCount: u.analyst.cycleCount });
 
@@ -112,30 +102,18 @@ router.get("/next", auth, async (req, res) => {
   });
 });
 
-// Complete an active combo once the member has topped their balance back to >= 0.
-// Returns the full combo price (original balance + top-up) plus the commission.
+// Settle the active combo (normally done automatically when the admin confirms
+// the member's deposit; this lets the member app trigger the same settle once
+// their balance is back to >= 0).
 router.post("/combo/complete", auth, async (req, res) => {
   const u = req.user;
-  if (u.frozen?.active) return res.status(403).json({ error: "Account in deficit.", frozen: true });
-  const combo = await Combo.findOne({ user: u._id, status: "active" }).sort({ comboAt: 1 });
+  const combo = await Combo.findOne({ user: u._id, status: "active" }).sort({ createdAt: 1 });
   if (!combo) return res.status(400).json({ error: "no active combo order" });
-  if (Number(u.balance) < 0) return res.status(400).json({ error: `Add $${(-Number(u.balance)).toFixed(2)} to your balance to complete this order.`, needRecharge: r2(-Number(u.balance)) });
-  const claimed = await Combo.findOneAndUpdate({ _id: combo._id, status: "active" }, { $set: { status: "completed" } });
-  if (!claimed) return res.status(409).json({ error: "this order was already completed" });
-  const commission = comboCommission(combo);
-  const credit = r2(Number(combo.comboPrice) + commission);
-  // Completing a combo counts as one order of the day (so the next combo's
-  // comboAt lines up) and advances the analyst cycle.
-  const today = dayStr();
-  const newDay = u.analyst.lastOrderDay !== today;
-  const updated = await User.findByIdAndUpdate(u._id, {
-    $inc: { balance: credit, totalEarned: commission, "analyst.cycleCount": 1, "analyst.ordersToday": newDay ? -(u.analyst.ordersToday || 0) + 1 : 1 },
-    $set: { "analyst.lastOrderDay": today },
-  }, { new: true });
-  await logChange(u._id, r2(Number(updated.balance) - credit), credit, updated.balance, "Combo Order Completed");
-  await Transaction.create({ user: u._id, type: "commission", amount: commission, note: "Combo lot completed" });
-  notifyAdmins("combo", { title: `Combo completed by ${uname(u)}`, body: `Earned $${commission.toLocaleString()} commission`, user: u._id, userName: uname(u), meta: { commission } });
-  res.json({ ok: true, dividend: commission, balance: r2(updated.balance), cycleComplete: updated.analyst.cycleCount >= PRODUCTS_PER_CYCLE });
+  if (Number(u.balance) < 0) return res.status(400).json({ error: `Deposit $${(-Number(u.balance)).toFixed(2)} to complete this order — it settles once an admin confirms.`, needRecharge: r2(-Number(u.balance)) });
+  const s = await settleCombo(u._id);
+  if (!s) return res.status(409).json({ error: "could not settle — try again" });
+  notifyAdmins("combo", { title: `Combo settled for ${uname(u)}`, body: `$${s.commission.toLocaleString()} commission`, user: u._id, userName: uname(u), meta: { commission: s.commission } });
+  res.json({ ok: true, dividend: s.commission, balance: s.balance });
 });
 
 router.post("/submit", auth, async (req, res) => {

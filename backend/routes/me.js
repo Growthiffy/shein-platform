@@ -9,6 +9,7 @@ const Transaction = require("../models/Transaction");
 const ChatMessage = require("../models/ChatMessage");
 const AnalystSubmission = require("../models/AnalystSubmission");
 const { notifyAdmins } = require("../utils/adminNotify");
+const { activeComboFor } = require("../utils/combo");
 const unameOf = u => u.username || (u.email ? u.email.split("@")[0] : "member");
 const { levelFor } = require("../utils/pricing");
 const { accrueAndUpgrade } = require("../utils/accrual");
@@ -36,7 +37,10 @@ router.get("/", auth, async (req, res) => {
     dirty = true;
   }
   if (dirty) await req.user.save();
-  res.json({ user: publicUser(req.user) });
+  const user = publicUser(req.user);
+  // Surface an active combo so the member app can prompt for the deposit everywhere.
+  try { const c = await activeComboFor(req.user._id); if (c) user.combo = c; } catch {}
+  res.json({ user });
 });
 
 router.post("/username", auth, async (req, res) => {

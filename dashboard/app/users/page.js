@@ -156,6 +156,8 @@ export default function Users() {
               <TextField label="Email" value={u.email || ""} onSave={v => save({ email: v })} />
               <TextField label="Phone" value={u.phone || ""} onSave={v => save({ phone: v })} />
               <NumField label="Balance $" value={u.balance} onSave={v => save({ balance: Number(v) })} />
+              <AddFunds onAdd={n => act("/adjust-balance", { amount: n, note: "admin credit" }, null, `${n >= 0 ? "+" : ""}$${n} applied`)} />
+
               <NumField label="Total Earned $" value={u.totalEarned} onSave={v => save({ totalEarned: Number(v) })} />
               <NumField label="Reward Credit $" value={u.rewardCredit} onSave={v => save({ rewardCredit: Number(v) })} />
               <NumField label="Daily Salary $" value={u.dailySalary} onSave={v => save({ dailySalary: Number(v) })} />
@@ -280,6 +282,19 @@ export default function Users() {
         </div>
       </div>
     </Shell>
+  );
+}
+
+function AddFunds({ onAdd }) {
+  const [v, setV] = useState("");
+  function go(sign) { const n = Number(v) * sign; if (!Number.isFinite(n) || n === 0) return; onAdd(n); setV(""); }
+  return (
+    <div className="flex items-center gap-2 rounded-lg bg-gold/5 border border-gold/20 p-2">
+      <span className="text-xs text-gold w-24">Add / deduct $</span>
+      <input type="number" value={v} onChange={e => setV(e.target.value)} placeholder="amount" className="flex-1" />
+      <button className="btn text-xs" onClick={() => go(1)}>+ Add</button>
+      <button className="btn-ghost text-xs" onClick={() => go(-1)}>− Deduct</button>
+    </div>
   );
 }
 

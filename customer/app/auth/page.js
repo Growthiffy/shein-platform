@@ -124,7 +124,7 @@ function Verify({ devCode }) {
   const [code, setCode] = useState(devCode || "");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState(devCode ? `Dev mode: your code is ${devCode}` : "");
+  const [note, setNote] = useState(devCode ? `Your verification code: ${devCode}` : "");
   const [cooldown, setCooldown] = useState(0);
   const email = typeof window !== "undefined" ? sessionStorage.getItem("shein_pending_email") || "" : "";
 
@@ -146,7 +146,7 @@ function Verify({ devCode }) {
     try {
       const d = await api("/api/auth/resend", { method: "POST", body: { email } });
       setCooldown(30);
-      setNote(d.devCode ? `Dev mode: your code is ${d.devCode}` : "New code sent. Check your email.");
+      setNote(d.devCode ? `Your verification code: ${d.devCode}` : "New code sent. Check your email.");
       if (d.devCode) setCode(d.devCode);
     } catch (e) { setErr(e.message); }
   }

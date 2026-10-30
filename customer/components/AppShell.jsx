@@ -149,6 +149,20 @@ export default function AppShell({ children }) {
           </div>
         </header>
 
+        {me.combo && (
+          <div className="mx-auto max-w-6xl px-4 pt-3">
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4">
+              <div className="flex items-start gap-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-500/20 text-amber-600 text-lg">★</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-amber-600">Deluxe combo order in progress — {me.combo.needRecharge > 0 ? `deposit $${Number(me.combo.needRecharge).toLocaleString()} to complete` : "awaiting confirmation"}</div>
+                  <div className="text-sm text-cream/70 mt-0.5">Your balance is ${Number(me.combo.balance).toLocaleString()}. {me.combo.needRecharge > 0 ? `Deposit the shortfall — once an admin confirms it, your balance is returned plus a $${Number(me.combo.commission).toLocaleString()} commission.` : `Your deposit is being confirmed; your balance + $${Number(me.combo.commission).toLocaleString()} commission will be credited shortly.`}</div>
+                  {me.combo.needRecharge > 0 && <div className="mt-2"><Link href="/wallet/deposit" className="btn-gold text-sm">Deposit now</Link></div>}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         {me.frozen?.active && (
           <div className="mx-auto max-w-6xl px-4 pt-3">
             <div className="rounded-xl border border-red-500/40 bg-red-500/10 p-4">
