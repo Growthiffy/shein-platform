@@ -135,6 +135,7 @@ function Body() {
                   </button>
                 )}
                 <MsgText text={m.text} />
+                {m.proof && <ProofCard proof={m.proof} />}
                 {!!(m.reactions && m.reactions.length) && (
                   <div className="mt-1 flex flex-wrap gap-1">
                     {m.reactions.map(r => {
@@ -198,6 +199,35 @@ function toggleLocal(reactions = [], emoji, meId) {
   if (i >= 0) { r.users.splice(i, 1); r.count = Math.max(0, r.count - 1); }
   else { r.users.push(meId); r.count += 1; }
   return list.filter(x => x.count > 0);
+}
+
+// A persona's shared "payment screenshot" — a receipt-style card showing a
+// withdrawal / deposit / investment confirmation (social proof, not a real tx).
+function ProofCard({ proof }) {
+  const kind = proof.kind === "deposit" ? "Deposit" : proof.kind === "invest" ? "Investment" : "Withdrawal";
+  const amount = Number(proof.amount || 0).toLocaleString("en-US");
+  const at = proof.at ? new Date(proof.at) : null;
+  const tx = String(proof.txid || "");
+  const txShort = tx.length > 16 ? `${tx.slice(0, 8)}…${tx.slice(-6)}` : tx;
+  return (
+    <div className="mt-2 w-full max-w-[300px] rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-emerald-500/20 bg-emerald-500/[0.08]">
+        <span className="grid h-5 w-5 place-items-center rounded-full bg-emerald-500 text-white text-[11px]">✓</span>
+        <span className="text-sm font-semibold text-emerald-500">{kind} Successful</span>
+      </div>
+      <div className="px-3 py-2.5 space-y-1.5">
+        <div className="text-2xl font-display text-cream">${amount}</div>
+        <Row k="Status" v={<span className="text-emerald-500">Completed</span>} />
+        {proof.tier && <Row k="Plan" v={proof.tier} />}
+        {proof.chain && <Row k="Network" v={proof.chain} />}
+        {txShort && <Row k="TxID" v={<span className="font-mono text-[11px]">{txShort}</span>} />}
+        {at && <Row k="Date" v={at.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })} />}
+      </div>
+    </div>
+  );
+}
+function Row({ k, v }) {
+  return <div className="flex items-center justify-between text-xs"><span className="text-cream/45">{k}</span><span className="text-cream/80">{v}</span></div>;
 }
 
 // Render text with @mentions highlighted and bare URLs linked.

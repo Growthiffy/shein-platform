@@ -11,6 +11,7 @@ const ChatTyping = require("../models/ChatTyping");
 const { getSettings } = require("../utils/settings");
 const { generate, aiEnabled } = require("./ai");
 const { humanPresent } = require("./presence");
+const { makeProof, proofText } = require("./backfill");
 const LINES = require("../data/persona_lines.json");
 const SCRIPTS = require("../data/persona_scripts.json");
 
@@ -102,6 +103,13 @@ function plan(state, personas) {
   }
   if (roll < 0.9) {
     const sp = pick(personas);
+    // Occasionally share a payment "screenshot" (withdrawal/deposit/invest proof).
+    if ((state.group === "daily" || state.group === "invest") && Math.random() < 0.18) {
+      const p = makeProof(state.group, new Date());
+      const msg = buildMsg(state.group, last, { name: sp.name, avatar: sp.avatar }, proofText(p), {});
+      msg.proof = p;
+      return { messages: [msg], update: { scriptId: -1, scriptStep: 0, speakers: state.speakers }, gapMs: GAP.standalone() };
+    }
     const text = Math.random() < 0.22 ? pick(AWAY) : pick(LINES);
     const msg = buildMsg(state.group, last, { name: sp.name, avatar: sp.avatar }, text, {});
     return { messages: [msg], update: { scriptId: -1, scriptStep: 0, speakers: state.speakers }, gapMs: GAP.standalone() };

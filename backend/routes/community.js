@@ -4,6 +4,7 @@ const ChatMessage = require("../models/ChatMessage");
 const { maybePost, currentTyping } = require("../utils/personaTick");
 const { maybeMentorReply } = require("../utils/mentorTick");
 const { typingNames } = require("../utils/presence");
+const { fillGap } = require("../utils/backfill");
 
 // Resolve the access gate a group maps to. daily/invest map to their own flag;
 // any mentor:<id> room maps to mentorRooms. Unknown groups are allowed.
@@ -41,6 +42,9 @@ router.get("/:group", auth, async (req, res) => {
   if (!allowed(req.user, group)) return res.status(403).json({ error: "no access to this group" });
   const vErr = verificationError(req.user, group);
   if (vErr) return res.status(403).json(vErr);
+  // Backfill a dense history first if the room has been quiet (member was away),
+  // so returning users see hundreds of messages, not a frozen room.
+  await fillGap(group).catch(() => {});
   // Fire persona chatter / mentor auto-reply (best-effort; never blocks chat).
   await maybePost(group).catch(() => {});
   await maybeMentorReply(group).catch(() => {});

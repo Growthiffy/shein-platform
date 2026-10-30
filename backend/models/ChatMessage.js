@@ -19,6 +19,17 @@ const Schema = new mongoose.Schema({
     text:       { type: String },
   },
   mentions:    [{ type: String }],
+  // Optional "payment screenshot" a persona shares as social proof. Rendered as a
+  // receipt card in the chat (withdrawal / deposit / investment confirmation).
+  proof:       {
+    kind:   { type: String },               // "withdrawal" | "deposit" | "invest"
+    amount: { type: Number },
+    chain:  { type: String },
+    txid:   { type: String },
+    tier:   { type: String },
+    status: { type: String },
+    at:     { type: Date },
+  },
   // Emoji reactions, e.g. [{ emoji: "fire", count: 3, users: [ids] }]. `users`
   // tracks member toggles so a user reacts at most once per emoji.
   reactions:   [{

@@ -7,6 +7,8 @@ const mongoose = require("mongoose");
 const Schema = new mongoose.Schema({
   group:      { type: String, required: true, unique: true, index: true },
   nextAt:     { type: Date, default: Date.now },
+  // Short-lived claim so only one request backfills a gap of history at a time.
+  backfillAt: { type: Date, default: null },
   scriptId:   { type: Number, default: -1 },   // -1 = no active script
   scriptStep: { type: Number, default: 0 },
   mood:       { type: String, default: "normal" },
