@@ -159,16 +159,35 @@ function baseDoc(group, sp, text, mentions, at) {
   };
 }
 
-// Friendly replies used when AI is unavailable. {n} = the member's name.
-const USER_REPLIES = [
-  "hey @{n}, welcome! how's your day going?",
-  "@{n} hi! you doing the analyst cycle today?",
-  "yo @{n} 👋 good to see a new face",
-  "@{n} hey hey, what tier are you on?",
-  "hi @{n}! ask away if you need anything, we're friendly here",
-  "@{n} welcome in, the latest collection items are paying well today",
-  "hey @{n}, just finished my cycle, how about you?",
-  "@{n} 👋 morning/evening wherever you are lol",
+// Static fallback reply pools, used ONLY when AI is off. Grouped by the member's
+// intent so a canned line at least fits what they said. {n} = member name.
+// (For genuinely contextual replies, set GEMINI_API_KEY to enable the AI path.)
+const WELCOME_REPLIES = [
+  "@{n} welcome in! first time here? the analyst cycle's the best place to start 👋",
+  "@{n} hey welcome 😄 ask away, friendly bunch in here",
+];
+const GREETING_REPLIES = [
+  "@{n} hey! good to see you 👋 how's the cycle going?",
+  "@{n} yo 😄 what tier are you grinding right now?",
+  "@{n} hey hey, settling in ok?",
+];
+const QUESTION_REPLIES = [
+  "@{n} good q — the market brief on each product actually answers most of that, give it a read",
+  "@{n} depends on your tier tbh, but most of us just follow the daily cycle",
+  "@{n} honestly the mentor room explains that way better than i can",
+  "@{n} not 100% sure myself, someone here usually knows — anyone?",
+];
+const BANTER_REPLIES = [ // jokes / compliments / off-topic — stay friendly, redirect
+  "@{n} haha appreciate that 😄 you doing the analyst cycle today?",
+  "@{n} lol you're alright — stick around, this group's a vibe",
+  "@{n} 😂 easy there, save that energy for the ratings",
+  "@{n} ha! anyway, sports category's been popping today, worth a look",
+];
+const GENERIC_REPLIES = [
+  "@{n} yeah fair point",
+  "@{n} same here honestly",
+  "@{n} true, been seeing that too",
+  "@{n} 👍 how's your day going though?",
 ];
 
 // Reassurance replies for when a member sounds worried, confused, or raises a
@@ -186,8 +205,35 @@ const SUPPORT_REPLIES = [
 ];
 // Keywords that flip a reply into reassurance/support-deflection mode.
 const CONCERN_RE = /\b(scam|fake|legit|real|fraud|stuck|frozen|freeze|lost|missing|error|errors|bug|not work|doesn'?t work|can'?t|cant|won'?t|wont|problem|issue|withdraw|withdrawal|pending|delay|delayed|refund|hacked|support|help|wrong|failed|decline)\b/i;
+const GREET_RE  = /\b(hi|hey+|hello+|yo+|sup|gm|good (morning|evening|afternoon))\b/i;
+const BANTER_RE = /(love you|in love|marry|cute|beautiful|pretty|crush|gorgeous|😍|❤|😘|lol|lmao|haha+|😂|🤣)/i;
+const QUESTION_RE = /\?|\b(why|how|what|when|where|who|which|can|could|should|is|are|do|does|did)\b/i;
+
+// Choose a static fallback line that matches the member's intent. {n} applied by caller.
+function pickFallback(text, isFirst, id) {
+  const t = String(text || "");
+  let pool;
+  if (CONCERN_RE.test(t)) pool = SUPPORT_REPLIES;
+  else if (BANTER_RE.test(t)) pool = BANTER_REPLIES;
+  else if (isFirst && GREET_RE.test(t)) pool = WELCOME_REPLIES;
+  else if (GREET_RE.test(t)) pool = GREETING_REPLIES;
+  else if (QUESTION_RE.test(t)) pool = QUESTION_REPLIES;
+  else pool = GENERIC_REPLIES;
+  return pool[hashStr(String(id)) % pool.length];
+}
 
 const hashStr = s => { let h = 0; for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0; return h >>> 0; };
+
+// Pick WHO answers: if the member replied to or @mentioned a specific persona,
+// that persona answers; otherwise a deterministic pick. Keeps conversations
+// coherent (reply to Tara → Tara answers, not a random name).
+function targetPersona(last, personas, fallbackId) {
+  const byName = new Map(personas.map(p => [p.name.toLowerCase(), p]));
+  const mentioned = (String(last.text || "").match(/@([A-Za-z0-9._-]{2,30})/g) || []).map(s => s.slice(1));
+  const candidates = [last.replyTo?.authorName, ...mentioned].filter(Boolean);
+  for (const c of candidates) { const hit = byName.get(String(c).toLowerCase()); if (hit) return hit; }
+  return personas[hashStr(String(fallbackId) + "p") % personas.length];
+}
 
 // Human-like reply delay, deterministic per message. ~60% quick (3-15s), ~40%
 // slower (30-180s), so personas sometimes answer fast and sometimes take a while.
@@ -207,9 +253,12 @@ async function maybeReplyToUser(group, personas) {
 
   // Recent context so an AI reply can follow the actual conversation.
   const recent = await ChatMessage.find({ group }).sort({ createdAt: -1 }).limit(6);
-  const sp = personas[hashStr(String(last._id) + "p") % personas.length];
+  // The persona who answers = the one the member addressed (reply / @mention), else deterministic.
+  const sp = targetPersona(last, personas, last._id);
   const name = last.authorName || "there";
-  const concerned = CONCERN_RE.test(String(last.text || ""));
+  // Has this member spoken before? (controls first-time "welcome" lines)
+  const priorCount = await ChatMessage.countDocuments({ group, authorType: "user", authorName: last.authorName });
+  const isFirst = priorCount <= 1;
 
   let text = null;
   if (aiEnabled()) {
@@ -227,8 +276,7 @@ async function maybeReplyToUser(group, personas) {
     );
   }
   if (!text) {
-    const pool = concerned ? SUPPORT_REPLIES : USER_REPLIES;
-    text = pool[hashStr(String(last._id)) % pool.length].replace(/\{n\}/g, name);
+    text = pickFallback(last.text, isFirst, last._id).replace(/\{n\}/g, name);
   }
 
   // Claim: only post if the member's message is still the latest (no double reply).
