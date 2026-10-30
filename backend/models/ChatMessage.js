@@ -19,6 +19,13 @@ const Schema = new mongoose.Schema({
     text:       { type: String },
   },
   mentions:    [{ type: String }],
+  // Emoji reactions, e.g. [{ emoji: "fire", count: 3, users: [ids] }]. `users`
+  // tracks member toggles so a user reacts at most once per emoji.
+  reactions:   [{
+    emoji: { type: String },
+    count: { type: Number, default: 0 },
+    users: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  }],
 }, { timestamps: true });
 
 module.exports = mongoose.model("ChatMessage", Schema);

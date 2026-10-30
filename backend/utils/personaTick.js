@@ -7,8 +7,29 @@
 const ChatMessage = require("../models/ChatMessage");
 const Persona = require("../models/Persona");
 const ChatState = require("../models/ChatState");
+const ChatTyping = require("../models/ChatTyping");
+const { getSettings } = require("../utils/settings");
 const LINES = require("../data/persona_lines.json");
 const SCRIPTS = require("../data/persona_scripts.json");
+
+// Reactions personas sprinkle on their own messages, so the chat looks lived-in.
+const REACT_EMOJIS = ["fire", "thumbsup", "heart", "clap", "rocket", "eyes", "100"];
+function seedReactions() {
+  if (Math.random() < 0.45) return []; // many messages have none
+  const n = 1 + Math.floor(Math.random() * 3);
+  const picked = sample(REACT_EMOJIS, n);
+  return picked.map(e => ({ emoji: e, count: 1 + Math.floor(Math.random() * 3), users: [] }));
+}
+
+// Personas only chatter during configured active hours (server timezone).
+async function withinActiveHours() {
+  const s = await getSettings(["personaActiveHoursStart", "personaActiveHoursEnd"]);
+  const start = Number(s.personaActiveHoursStart);
+  const end = Number(s.personaActiveHoursEnd);
+  const h = new Date().getHours();
+  if (Number.isNaN(start) || Number.isNaN(end)) return true;
+  return start <= end ? (h >= start && h < end) : (h >= start || h < end);
+}
 
 const AWAY = [
   "stepping away for a bit, back later",
@@ -86,8 +107,17 @@ function plan(state, personas) {
   return { messages: [], update: { scriptId: -1, scriptStep: 0, speakers: state.speakers }, gapMs: GAP.quiet() };
 }
 
+// Current active typing indicators for a group (persona names).
+async function currentTyping(group) {
+  const now = new Date();
+  const rows = await ChatTyping.find({ group, expiresAt: { $gt: now } }).limit(3);
+  return rows.map(r => r.personaName);
+}
+
 async function maybePost(group) {
   if (group !== "daily" && group !== "invest") return;
+  if (!(await withinActiveHours())) return; // personas "asleep" outside active hours
+
   const personas = await Persona.find({ active: true, group: { $in: [group, "both"] } });
   if (!personas.length) return;
 
@@ -96,22 +126,49 @@ async function maybePost(group) {
   if (!st) { await ChatState.create({ group, nextAt: new Date(now + GAP.seed()), scriptId: -1 }); return; }
   if (st.nextAt && st.nextAt.getTime() > now) return;
 
-  const p = plan(st, personas);
+  // Phase 2: a message was queued behind a typing indicator — post it now.
+  if (st.pending && Array.isArray(st.pending.messages)) {
+    const claimed = await ChatState.findOneAndUpdate(
+      { _id: st._id, nextAt: { $lte: new Date(now) }, pending: { $ne: null } },
+      { $set: { nextAt: new Date(now + st.pending.gapMs), pending: null } },
+      { new: false }
+    );
+    if (!claimed) return;
+    const pend = claimed.pending;
+    let last = st.lastMsg;
+    for (const m of pend.messages) {
+      const created = await ChatMessage.create({ ...m, reactions: seedReactions() });
+      last = { id: created._id, authorName: created.authorName, text: created.text };
+    }
+    await ChatTyping.deleteMany({ group }).catch(() => {});
+    await ChatState.updateOne({ _id: st._id }, {
+      $set: { lastMsg: last, scriptId: pend.update.scriptId, scriptStep: pend.update.scriptStep, speakers: pend.update.speakers || st.speakers || [] },
+    });
+    return;
+  }
 
-  // Atomic claim: only the request that still sees nextAt<=now wins.
+  // Phase 1: decide what to say. If something, show a typing indicator and queue it.
+  const p = plan(st, personas);
+  if (!p.messages.length) {
+    await ChatState.findOneAndUpdate(
+      { _id: st._id, nextAt: { $lte: new Date(now) } },
+      { $set: { scriptId: p.update.scriptId, scriptStep: p.update.scriptStep, speakers: p.update.speakers || st.speakers || [], nextAt: new Date(now + p.gapMs) } },
+    );
+    return;
+  }
+
+  const typeMs = rand(3 * S, 7 * S);
   const claimed = await ChatState.findOneAndUpdate(
-    { _id: st._id, nextAt: { $lte: new Date(now) } },
-    { $set: { scriptId: p.update.scriptId, scriptStep: p.update.scriptStep, speakers: p.update.speakers || st.speakers || [], nextAt: new Date(now + p.gapMs) } },
+    { _id: st._id, nextAt: { $lte: new Date(now) }, pending: null },
+    { $set: { nextAt: new Date(now + typeMs), pending: { messages: p.messages, update: p.update, gapMs: p.gapMs } } },
     { new: false }
   );
   if (!claimed) return;
 
-  let last = st.lastMsg;
-  for (const m of p.messages) {
-    const created = await ChatMessage.create(m);
-    last = { id: created._id, authorName: created.authorName, text: created.text };
-  }
-  if (p.messages.length) await ChatState.updateOne({ _id: st._id }, { $set: { lastMsg: last } });
+  // Write typing markers for the speaker(s) of the queued messages.
+  const names = [...new Set(p.messages.map(m => m.authorName))].slice(0, 2);
+  const expiresAt = new Date(now + typeMs + 2000);
+  await ChatTyping.insertMany(names.map(n => ({ group, personaName: n, expiresAt }))).catch(() => {});
 }
 
-module.exports = { maybePost };
+module.exports = { maybePost, currentTyping };
