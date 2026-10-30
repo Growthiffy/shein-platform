@@ -108,6 +108,7 @@ async function fillGap(group) {
   ).catch(() => "taken");
   if (claim === "taken") return 0;
 
+  try {
   if (gap > MAX_SPAN) { startAt = now - MAX_SPAN; gap = MAX_SPAN; }
   const active = await withinActive();
 
@@ -152,8 +153,12 @@ async function fillGap(group) {
       if (cut[0]) await ChatMessage.deleteMany({ group, createdAt: { $lt: cut[0].createdAt } }).catch(() => {});
     }
   }
-  await ChatState.updateOne({ group }, { $set: { backfillAt: null } }).catch(() => {});
   return inserted;
+  } finally {
+    // Always release the lock, even if generation/insert threw, so the room is
+    // never stuck un-backfillable for the full lock window.
+    await ChatState.updateOne({ group }, { $set: { backfillAt: null } }).catch(() => {});
+  }
 }
 
 module.exports = { fillGap, makeProof, proofText };
