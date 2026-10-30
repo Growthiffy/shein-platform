@@ -85,7 +85,8 @@ function Body() {
         {(board?.items || []).map(r => (
           <div key={r.rank} className={`flex items-center gap-3 px-4 py-2.5 ${r.isYou ? "bg-gold/10" : ""}`}>
             <span className={`w-7 text-center font-display ${r.rank <= 3 ? "text-gold text-lg" : "text-cream/50"}`}>{r.rank <= 3 ? ["🥇", "🥈", "🥉"][r.rank - 1] : r.rank}</span>
-            <span className="flex-1 text-cream">{r.name}{r.isYou && <span className="ml-1 text-xs text-gold2">(you)</span>}</span>
+            {r.avatar && <img src={r.avatar} alt="" className="h-8 w-8 rounded-full object-cover ring-1 ring-line" loading="lazy" />}
+            <span className="flex-1 text-cream truncate">{r.flag ? r.flag + " " : ""}{r.name}{r.isYou && <span className="ml-1 text-xs text-gold2">(you)</span>}</span>
             <span className="text-xs text-cream/45 capitalize hidden sm:block">{r.level}</span>
             <span className="text-emerald-500 font-semibold tabular-nums">${Number(r.earned).toLocaleString()}</span>
           </div>

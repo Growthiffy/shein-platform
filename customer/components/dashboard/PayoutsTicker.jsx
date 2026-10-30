@@ -26,7 +26,9 @@ export default function PayoutsTicker() {
           <div className="flex gap-6 whitespace-nowrap py-2 px-4" style={{ animation: "ticker 60s linear infinite", width: "max-content" }}>
             {loop.map((it, i) => (
               <span key={i} className="inline-flex items-center gap-1.5 text-xs text-cream/80">
-                <TrendingUp size={12} className="text-emerald-500" />
+                {it.avatar
+                  ? <img src={it.avatar} alt="" className="h-5 w-5 rounded-full object-cover ring-1 ring-emerald-500/30" loading="lazy" />
+                  : <TrendingUp size={12} className="text-emerald-500" />}
                 <b className="text-cream">{it.name}</b>
                 <span className="text-cream/50">{it.country}</span>
                 <span className="text-cream/60">{it.verb}</span>

@@ -11,19 +11,21 @@ const DOT = {
   new_member: "bg-cream/40",
 };
 
+const short = a => (a && a.length > 12) ? `${a.slice(0, 6)}…${a.slice(-4)}` : a;
+
 function text(it) {
-  const m = `Member #${it.memberNumber}`;
+  const m = `${it.flag ? it.flag + " " : ""}${it.name || "A member"}`;
   switch (it.type) {
     case "deposit_approved": return `${m} deposited $${it.amount}`;
     case "withdrawal_complete": return `${m} withdrew $${it.amount}`;
     case "analysis_complete": return `${m} completed a product analysis cycle`;
     case "invest_start": return `${m} started a Gold tier investment`;
     case "level_up": return `${m} upgraded to Silver level`;
-    case "new_member": return "New analyst joined the platform";
+    case "new_member": return `${m} joined the platform`;
     default: return `${m} is active`;
   }
 }
-function keyOf(it) { return `${it.type}:${it.memberNumber}:${it.at}`; }
+function keyOf(it) { return `${it.type}:${it.name}:${it.at}`; }
 
 export default function ActivityFeed() {
   const [items, setItems] = useState([]);
@@ -38,7 +40,7 @@ export default function ActivityFeed() {
       setItems(d.items || []);
     }).catch(() => {});
     load();
-    const t = setInterval(load, 30000);
+    const t = setInterval(load, 20000);
     return () => { alive = false; clearInterval(t); };
   }, []);
 
@@ -57,8 +59,13 @@ export default function ActivityFeed() {
           seen.current.add(k);
           return (
             <div key={k} className={`flex items-center gap-2.5 py-1.5 ${isNew ? "toast-in" : ""}`}>
-              <span className={`h-2 w-2 shrink-0 rounded-full ${DOT[it.type] || "bg-cream/40"}`} />
-              <span className="text-sm text-cream/75 flex-1 truncate">{text(it)}</span>
+              {it.avatar
+                ? <img src={it.avatar} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover ring-1 ring-line" loading="lazy" />
+                : <span className={`h-2 w-2 shrink-0 rounded-full ${DOT[it.type] || "bg-cream/40"}`} />}
+              <span className="text-sm text-cream/75 flex-1 min-w-0">
+                <span className="truncate block">{text(it)}</span>
+                {it.address && <span className="text-[10px] text-cream/35 font-mono">{short(it.address)}</span>}
+              </span>
               <span className="text-xs text-cream/40 shrink-0">{it.timeAgo}</span>
             </div>
           );

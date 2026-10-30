@@ -100,6 +100,7 @@ export default function MyJuniors() {
                 <span className="text-cream font-medium">{u.name}</span>
                 {u.waiting && <span className="h-2 w-2 rounded-full bg-emerald-500" title="waiting on you" />}
               </div>
+              {u.mentorName && <div className="text-[10px] text-gold/70">as {u.mentorName}</div>}
               <div className="text-xs text-cream/45 truncate">{u.lastText || "no messages yet"}</div>
             </button>
           ))}
@@ -111,7 +112,7 @@ export default function MyJuniors() {
           {!active && <div className="text-cream/50 text-sm m-auto">Pick a member to start chatting.</div>}
           {active && (
             <>
-              <div className="font-medium text-cream mb-2 border-b border-line pb-2">{active.name}</div>
+              <div className="font-medium text-cream mb-2 border-b border-line pb-2 flex items-center gap-2">{active.name}{active.mentorName && <span className="text-xs text-gold/80 font-normal">· replying as {active.mentorName}</span>}</div>
               <div ref={box} className="h-[55vh] overflow-y-auto space-y-3 pr-1">
                 {msgs.map(m => {
                   const mine = m.authorType === "mentor";

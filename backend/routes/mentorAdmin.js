@@ -12,62 +12,73 @@ const { heartbeat, clear } = require("../utils/presence");
 
 router.use(auth, admin);
 
-// The Mentor profile this operator controls (if any).
-async function myMentor(user) {
-  return Mentor.findOne({ owner: user._id });
+// Every mentor profile this operator controls (an admin may own several).
+async function myMentors(user) {
+  return Mentor.find({ owner: user._id }).sort({ createdAt: 1 });
 }
 function roomFor(mentorId, userId) { return `mentor:${mentorId}:${userId}`; }
 
-// Am I a mentor? (drives the dashboard nav + page gate)
+// The specific owned mentor a given mentee belongs to (or null if not mine).
+async function mentorForMentee(user, userId) {
+  const u = await User.findById(userId).select("username email avatar mentor");
+  if (!u || !u.mentor) return { u: null, m: null };
+  const m = await Mentor.findOne({ _id: u.mentor, owner: user._id });
+  return { u, m };
+}
+
+// Am I a mentor? (drives the dashboard nav + page gate) — returns ALL mentors I own.
 router.get("/me", async (req, res) => {
-  const m = await myMentor(req.user);
-  res.json({ mentor: m ? { _id: m._id, name: m.name, title: m.title, avatar: m.avatar, active: m.active } : null });
+  const list = await myMentors(req.user);
+  const mentors = list.map(m => ({ _id: m._id, name: m.name, title: m.title, avatar: m.avatar, active: m.active }));
+  res.json({ mentor: mentors[0] || null, mentors });
 });
 
-// Members assigned to me, with a snapshot of their 1:1 room.
+// Members across all mentors I own, each tagged with the mentor they chose.
 router.get("/mentees", async (req, res) => {
-  const m = await myMentor(req.user);
-  if (!m) return res.json({ mentor: null, items: [] });
-  const users = await User.find({ mentor: m._id, role: "customer" })
-    .select("username email avatar verification accountNumber createdAt").sort({ createdAt: -1 }).limit(500);
+  const list = await myMentors(req.user);
+  if (!list.length) return res.json({ mentor: null, mentors: [], items: [] });
+  const mById = new Map(list.map(m => [String(m._id), m]));
+  const users = await User.find({ mentor: { $in: list.map(m => m._id) }, role: "customer" })
+    .select("username email avatar verification accountNumber createdAt mentor").sort({ createdAt: -1 }).limit(500);
 
   const items = await Promise.all(users.map(async u => {
-    const group = roomFor(m._id, u._id);
+    const m = mById.get(String(u.mentor));
+    const group = roomFor(u.mentor, u._id);
     const last = await ChatMessage.findOne({ group }).sort({ createdAt: -1 }).select("text authorType createdAt");
-    // Unanswered = member's message is the latest in their room.
     const waiting = !!last && last.authorType === "user";
     return {
       _id: u._id, name: u.username || (u.email || "").split("@")[0], avatar: u.avatar || null,
       accountNumber: u.accountNumber, verification: u.verification?.level || "none",
+      mentorId: String(u.mentor), mentorName: m ? m.name : "Mentor",
       lastText: last ? String(last.text).slice(0, 80) : null,
       lastAt: last ? last.createdAt : null, waiting,
     };
   }));
-  // Members waiting on a reply float to the top, then by most recent activity.
   items.sort((a, b) => (b.waiting - a.waiting) || (new Date(b.lastAt || 0) - new Date(a.lastAt || 0)));
-  res.json({ mentor: { _id: m._id, name: m.name, title: m.title, avatar: m.avatar }, items });
+  res.json({
+    mentor: { _id: list[0]._id, name: list[0].name, title: list[0].title, avatar: list[0].avatar },
+    mentors: list.map(m => ({ _id: m._id, name: m.name, title: m.title, avatar: m.avatar })),
+    items,
+  });
 });
 
-// Load a mentee's 1:1 room (must be assigned to me).
+// Load a mentee's 1:1 room (member must belong to a mentor I own).
 router.get("/room/:userId", async (req, res) => {
-  const m = await myMentor(req.user);
-  if (!m) return res.status(403).json({ error: "not a mentor" });
-  const u = await User.findOne({ _id: req.params.userId, mentor: m._id }).select("username email avatar");
-  if (!u) return res.status(404).json({ error: "not your mentee" });
+  const { u, m } = await mentorForMentee(req.user, req.params.userId);
+  if (!m) return res.status(404).json({ error: "not your mentee" });
   const group = roomFor(m._id, u._id);
   const items = await ChatMessage.find({ group }).sort({ createdAt: -1 }).limit(200);
   res.json({
     mentee: { _id: u._id, name: u.username || (u.email || "").split("@")[0], avatar: u.avatar || null },
+    mentor: { _id: m._id, name: m.name, avatar: m.avatar },
     group, items: items.reverse(),
   });
 });
 
-// Reply to a mentee as the real mentor.
+// Reply to a mentee as the mentor they chose.
 router.post("/room/:userId", async (req, res) => {
-  const m = await myMentor(req.user);
-  if (!m) return res.status(403).json({ error: "not a mentor" });
-  const u = await User.findOne({ _id: req.params.userId, mentor: m._id }).select("_id");
-  if (!u) return res.status(404).json({ error: "not your mentee" });
+  const { u, m } = await mentorForMentee(req.user, req.params.userId);
+  if (!m) return res.status(404).json({ error: "not your mentee" });
   const text = String(req.body?.text || "").replace(/\r\n/g, "\n").trim();
   const image = typeof req.body?.image === "string" && /^data:(image\/|application\/pdf)/.test(req.body.image) ? req.body.image : undefined;
   if (image && image.length > 4_000_000) return res.status(400).json({ error: "file too large (max ~3MB)" });
@@ -96,10 +107,10 @@ router.post("/presence", async (req, res) => {
   const group = String(req.body?.group || "").trim();
   if (!group) return res.status(400).json({ error: "group required" });
   const typing = !!req.body?.typing;
-  const m = await myMentor(req.user);
-  const ownsRoom = m && group.startsWith(`mentor:${m._id}`);
-  const name = ownsRoom ? m.name : (req.user.username || "Shein Staff");
-  await heartbeat({ group, user: req.user._id, name, kind: ownsRoom ? "mentor" : "admin", typing });
+  const list = await myMentors(req.user);
+  const owned = list.find(m => group.startsWith(`mentor:${m._id}`));
+  const name = owned ? owned.name : (req.user.username || "Shein Staff");
+  await heartbeat({ group, user: req.user._id, name, kind: owned ? "mentor" : "admin", typing });
   res.json({ ok: true });
 });
 router.post("/presence/clear", async (req, res) => {

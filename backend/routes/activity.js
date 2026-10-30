@@ -3,6 +3,7 @@ const { auth } = require("../middleware/auth");
 const Transaction = require("../models/Transaction");
 const User = require("../models/User");
 const { getSettings } = require("../utils/settings");
+const { identity, fakeAddress, selfIdentity } = require("../utils/fakeIdentities");
 
 function mulberry32(seed) {
   let a = seed >>> 0;
@@ -29,51 +30,60 @@ const TYPE_MAP = {
   commission:     { type: "analysis_complete" },
 };
 
-// GET /api/activity/feed — recent anonymized real activity, padded with
-// deterministic filler (seeded by the hour) so the feed stays lively but stable.
+// GET /api/activity/feed — the live activity feed. A member sees only THEIR OWN
+// real activity (never other real members), padded with fabricated identities from
+// the weighted pool. Real own entries carry the member's real name, avatar and
+// (for money movements) real wallet address.
 router.get("/feed", auth, async (req, res) => {
   const s = await getSettings(["activityFeedEnabled"]);
   if (s.activityFeedEnabled === false) return res.json({ items: [], enabled: false });
 
+  const self = selfIdentity(req.user);
   const since = new Date(Date.now() - 24 * 3600 * 1000);
+  // Only "big" money events — deposits, withdrawals, investments. No tiny
+  // analysis-cycle / commission noise.
   const txs = await Transaction.find({
+    user: req.user._id,
     createdAt: { $gte: since },
-    type: { $in: ["deposit", "withdrawal", "invest_lock", "commission"] },
+    type: { $in: ["deposit", "withdrawal", "invest_lock"] },
     status: { $in: ["approved", "complete"] },
-  }).sort({ createdAt: -1 }).limit(20).populate("user", "accountNumber");
+  }).sort({ createdAt: -1 }).limit(8);
 
   const real = txs.map(t => ({
     type: TYPE_MAP[t.type].type,
-    memberNumber: t.user?.accountNumber || (1000 + (String(t.user?._id || "").slice(-3).split("").reduce((a, c) => a + c.charCodeAt(0), 0))),
+    name: self.name, avatar: self.avatar, flag: self.flag,
     amount: Math.round(t.amount),
+    address: (t.type === "withdrawal" || t.type === "deposit") ? (t.address || null) : undefined,
     timeAgo: timeAgo(t.createdAt),
-    at: t.createdAt,
+    at: t.createdAt, real: true,
   }));
 
-  // Pad with deterministic filler if fewer than 10 real items in 24h.
+  // Pad with fabricated pool identities. Seeded per MINUTE so the feed churns
+  // every minute (a fresh item set each poll), not once an hour.
   const items = [...real];
-  if (real.length < 10) {
-    const hourSeed = Math.floor(Date.now() / (3600 * 1000));
-    const rng = mulberry32(hourSeed);
-    const FILLERS = [
-      () => ({ type: "analysis_complete" }),
-      () => ({ type: "deposit_approved", amount: [100, 200, 300, 500, 750, 1000][Math.floor(rng() * 6)] }),
-      () => ({ type: "withdrawal_complete", amount: [120, 250, 400, 600, 900][Math.floor(rng() * 5)] }),
-      () => ({ type: "invest_start" }),
-      () => ({ type: "level_up" }),
-      () => ({ type: "new_member" }),
-    ];
-    const need = 16 - real.length;
-    for (let i = 0; i < need; i++) {
-      const f = FILLERS[Math.floor(rng() * FILLERS.length)]();
-      const minsAgo = Math.floor(rng() * 1400) + 1;
-      items.push({
-        memberNumber: 1000 + Math.floor(rng() * 8000),
-        timeAgo: minsAgo < 60 ? `${minsAgo} min ago` : `${Math.floor(minsAgo / 60)} hr ago`,
-        at: new Date(Date.now() - minsAgo * 60000),
-        ...f,
-      });
-    }
+  const minSeed = Math.floor(Date.now() / (60 * 1000));
+  const rng = mulberry32(minSeed);
+  // Only "big" events — big deposits, withdrawals, investments, level-ups.
+  const FILLERS = [
+    () => ({ type: "deposit_approved", amount: [500, 750, 1000, 1500, 2500, 5000][Math.floor(rng() * 6)] }),
+    () => ({ type: "withdrawal_complete", amount: [400, 600, 900, 1400, 2200, 3500][Math.floor(rng() * 6)] }),
+    () => ({ type: "invest_start" }),
+    () => ({ type: "level_up" }),
+  ];
+  let n = Math.floor(rng() * 1e9);
+  const need = Math.max(16 - real.length, 12);
+  for (let i = 0; i < need; i++) {
+    const f = FILLERS[Math.floor(rng() * FILLERS.length)]();
+    const minsAgo = Math.floor(rng() * 90) + 1;
+    const id = identity(n += 7919);
+    const wd = f.type === "withdrawal_complete", dp = f.type === "deposit_approved";
+    items.push({
+      name: id.name, avatar: id.avatar, flag: id.flag,
+      address: (wd || dp) ? fakeAddress(id.id + ":" + minsAgo) : undefined,
+      timeAgo: minsAgo < 60 ? `${minsAgo} min ago` : `${Math.floor(minsAgo / 60)} hr ago`,
+      at: new Date(Date.now() - minsAgo * 60000), real: false,
+      ...f,
+    });
   }
 
   items.sort((a, b) => new Date(b.at) - new Date(a.at));

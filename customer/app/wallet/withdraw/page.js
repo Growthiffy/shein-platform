@@ -23,7 +23,16 @@ function Body() {
   const [limits, setLimits] = useState(null);
   const [bal, setBal] = useState(null);
   const [busy, setBusy] = useState(false);
+  // Which wallet to draw from: "analysis" (default) or "invest".
+  const [source, setSource] = useState("analysis");
   const toast = useToast();
+
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("source");
+    if (q === "invest") setSource("invest");
+  }, []);
+
+  const sourceBal = source === "invest" ? (bal?.invest ?? me.investBalance ?? 0) : (bal?.available ?? me.balance ?? 0);
 
   async function load() {
     const h = await api("/api/wallet/history"); setHistory(h.items.filter(x => x.type === "withdrawal"));
@@ -40,7 +49,7 @@ function Body() {
   async function withdraw() {
     setErr(""); setNeedsVerify(false); setBusy(true);
     try {
-      const d = await api("/api/wallet/withdraw", { method: "POST", body: { amount: Number(amount), chain, address } });
+      const d = await api("/api/wallet/withdraw", { method: "POST", body: { amount: Number(amount), chain, address, source } });
       setReceipt(d.tx); setAmount(""); toast({ text: "Withdrawal request submitted", type: "info" }); await Promise.all([load(), refresh()]);
     } catch (e) { setErr(e.message); if (/verification/i.test(e.message)) setNeedsVerify(true); }
     finally { setBusy(false); }
@@ -54,8 +63,18 @@ function Body() {
     <div className="page grid md:grid-cols-2 gap-6">
       <div className="card p-6">
         <h2 className="font-display text-2xl text-gold">Withdraw</h2>
-        <div className="text-sm text-cream/60 mt-1">
-          Available: <span className="text-gold font-semibold">${(bal?.available ?? me.balance).toFixed(2)}</span>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {[["analysis", "Analysis balance", bal?.available ?? me.balance ?? 0], ["invest", "Investment wallet", bal?.invest ?? me.investBalance ?? 0]].map(([k, lbl, v]) => (
+            <button key={k} onClick={() => setSource(k)}
+              className={`text-left p-2.5 rounded-lg border transition ${source === k ? "border-gold bg-gold/10" : "border-line hover:border-gold/40"}`}>
+              <div className="label">{lbl}</div>
+              <div className={`text-lg font-semibold mt-0.5 ${source === k ? "text-gold" : "text-cream/70"}`}>${Number(v).toFixed(2)}</div>
+            </button>
+          ))}
+        </div>
+        <div className="text-sm text-cream/60 mt-2">
+          Withdrawing from <b className="text-cream/80">{source === "invest" ? "investment wallet" : "analysis balance"}</b>
           {bal?.pending ? <> &nbsp;/&nbsp; Pending: <span className="text-cream/80">${bal.pending.toFixed(2)}</span></> : null}
         </div>
 
@@ -89,7 +108,7 @@ function Body() {
 
         <Input label="Amount (USD)" value={amount} onChange={setAmount} type="number" />
         <div className="mt-2 flex flex-wrap gap-2">
-          {[["25%", me.balance * 0.25], ["50%", me.balance * 0.5], ["Max", me.balance]].map(([lbl, v]) => (
+          {[["25%", sourceBal * 0.25], ["50%", sourceBal * 0.5], ["Max", sourceBal]].map(([lbl, v]) => (
             <button key={lbl} onClick={() => setAmount(String(Math.floor(v * 100) / 100))} className="btn-outline py-1 px-3 text-xs">{lbl}</button>
           ))}
         </div>

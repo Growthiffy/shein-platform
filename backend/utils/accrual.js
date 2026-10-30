@@ -60,7 +60,9 @@ async function accrueAndUpgrade(user) {
       const weeks = Math.floor((now - lastAt) / WEEK_MS);
       if (weeks > 0) {
         const payout = +(inv.amount * (tier.weeklyPct / 100) * weeks).toFixed(2);
-        user.balance = +(user.balance + payout).toFixed(2);
+        // Investment earnings land in the SEPARATE investment wallet, never the
+        // analysis balance — the two are curated independently.
+        user.investBalance = +((user.investBalance || 0) + payout).toFixed(2);
         user.totalEarned = +(user.totalEarned + payout).toFixed(2);
         user.investment.lastPayoutAt = new Date(lastAt + weeks * WEEK_MS);
         await Transaction.create({ user: user._id, type: "invest_payout", amount: payout, note: `${weeks} wk × ${tier.weeklyPct}% @ Tier ${tier.name}` });

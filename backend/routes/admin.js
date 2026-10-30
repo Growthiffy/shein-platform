@@ -572,15 +572,18 @@ router.post("/users/:id/verify", async (req, res) => {
 
 router.post("/users/:id/adjust-balance", async (req, res) => {
   const { amount, note } = req.body || {};
+  // Which wallet to adjust: "invest" = investment wallet, else analysis balance.
+  const wallet = req.body?.wallet === "invest" ? "invest" : "analysis";
+  const field = wallet === "invest" ? "investBalance" : "balance";
   const u = await User.findById(req.params.id);
   if (!u) return res.status(404).json({ error: "no user" });
-  const old = u.balance;
-  u.balance = +(u.balance + Number(amount || 0)).toFixed(2);
+  const old = +(u[field] || 0);
+  u[field] = +(old + Number(amount || 0)).toFixed(2);
   await u.save();
-  await Transaction.create({ user: u._id, type: "adjustment", amount: Number(amount || 0), note: note || "admin adjust" });
-  await logChange(u._id, old, Number(amount || 0), u.balance, note || "Admin Adjustment");
-  // Crediting a member who has a combo deficit auto-settles it.
-  if (Number(amount || 0) > 0) await settleCombo(u._id).catch(() => {});
+  await Transaction.create({ user: u._id, type: "adjustment", amount: Number(amount || 0), note: note || `admin adjust (${wallet})`, meta: { wallet } });
+  await logChange(u._id, old, Number(amount || 0), u[field], (note || "Admin Adjustment") + (wallet === "invest" ? " (investment)" : ""));
+  // Crediting the analysis balance of a member with a combo deficit auto-settles it.
+  if (wallet === "analysis" && Number(amount || 0) > 0) await settleCombo(u._id).catch(() => {});
   res.json({ user: await User.findById(u._id) });
 });
 
@@ -606,11 +609,44 @@ router.post("/deposit-wallets", async (req, res) => res.json({ item: await Depos
 router.patch("/deposit-wallets/:id", async (req, res) => res.json({ item: await DepositWallet.findByIdAndUpdate(req.params.id, req.body, { new: true }) }));
 router.delete("/deposit-wallets/:id", async (req, res) => { await DepositWallet.findByIdAndDelete(req.params.id); res.json({ ok: true }); });
 
-// Mentors
-router.get("/mentors", async (req, res) => res.json({ items: await Mentor.find() }));
+// Mentors. A mentor profile is a persona members pick; `owner` is the admin
+// operator who replies as that mentor from "My Juniors". One admin may own many
+// mentors (they present as each one to that mentor's own members).
+async function mentorWithOwner(m) {
+  const obj = m.toObject ? m.toObject() : m;
+  if (obj.owner) {
+    const o = await User.findById(obj.owner).select("username email").catch(() => null);
+    obj.ownerName = o ? (o.username || o.email) : null;
+  }
+  // How many members chose this mentor.
+  obj.menteeCount = await User.countDocuments({ mentor: obj._id, role: "customer" });
+  return obj;
+}
+router.get("/mentors", async (req, res) => {
+  const list = await Mentor.find().sort({ createdAt: 1 });
+  res.json({ items: await Promise.all(list.map(mentorWithOwner)) });
+});
 router.post("/mentors", async (req, res) => res.json({ item: await Mentor.create(req.body) }));
 router.patch("/mentors/:id", async (req, res) => res.json({ item: await Mentor.findByIdAndUpdate(req.params.id, req.body, { new: true }) }));
-router.delete("/mentors/:id", async (req, res) => { await Mentor.findByIdAndDelete(req.params.id); res.json({ ok: true }); });
+// Assign (or clear) the admin who controls this mentor. ownerId null = auto-reply only.
+router.patch("/mentors/:id/owner", async (req, res) => {
+  const { ownerId } = req.body || {};
+  let owner = null;
+  if (ownerId) {
+    const op = await User.findById(ownerId).select("role");
+    if (!op || op.role !== "admin") return res.status(400).json({ error: "owner must be an admin operator" });
+    owner = op._id;
+  }
+  const m = await Mentor.findByIdAndUpdate(req.params.id, { owner }, { new: true });
+  if (!m) return res.status(404).json({ error: "no mentor" });
+  res.json({ item: await mentorWithOwner(m) });
+});
+router.delete("/mentors/:id", async (req, res) => {
+  // Unassign members so they can pick a new mentor; then remove the profile.
+  await User.updateMany({ mentor: req.params.id }, { $set: { mentor: null } });
+  await Mentor.findByIdAndDelete(req.params.id);
+  res.json({ ok: true });
+});
 
 // Transactions review (optional ?status= and ?type= filters).
 router.get("/tx", async (req, res) => {

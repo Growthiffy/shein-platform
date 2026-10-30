@@ -24,6 +24,11 @@ export default function Support() {
     loadThreads();
   }
   useEffect(() => { loadThreads(); const t = setInterval(loadThreads, 10000); return () => clearInterval(t); }, [tab]);
+  // Deep-link from a notification: /support?user=<id> opens that thread.
+  useEffect(() => {
+    const u = new URLSearchParams(window.location.search).get("user");
+    if (u) { setTab("all"); openThread(u); }
+  }, []);
 
   async function reply() {
     const t = text.replace(/\r\n/g, "\n");

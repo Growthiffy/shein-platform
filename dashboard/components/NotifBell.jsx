@@ -30,7 +30,22 @@ export default function NotifBell() {
     const n = !open; setOpen(n);
     if (n) { await loadFeed(); if (unread) { api("/api/admin/notifications/read", { method: "POST", body: { all: true } }).catch(() => {}); setUnread(0); } }
   }
-  function go(it) { setOpen(false); r.push(ROUTE[it.type] || "/users"); }
+  function go(it) {
+    setOpen(false);
+    const meta = it.meta || {};
+    // Talking-related notifications jump straight to the right room/thread.
+    if (it.type === "community") {
+      const g = String(meta.group || "");
+      const member = g.startsWith("mentor:") ? g.split(":")[2] : (g.split(":")[1] || it.user || "");
+      const qs = new URLSearchParams();
+      if (g) qs.set("group", g);
+      if (member) qs.set("member", member);
+      r.push(`/community${qs.toString() ? "?" + qs : ""}`);
+      return;
+    }
+    if (it.type === "support") { r.push(it.user ? `/support?user=${it.user}` : "/support"); return; }
+    r.push(ROUTE[it.type] || "/users");
+  }
   async function clearRead() { await api("/api/admin/notifications", { method: "DELETE" }).catch(() => {}); await loadFeed(); }
   async function toggleMute(type) {
     const cur = !!cfg.mutes[type];

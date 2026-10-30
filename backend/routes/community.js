@@ -146,7 +146,8 @@ router.post("/:group/share-proof", auth, async (req, res) => {
   const hex = n => { let s = ""; for (let i = 0; i < n; i++) s += "0123456789abcdef"[Math.floor(Math.random() * 16)]; return s; };
   const proof = {
     kind, amount: Math.round(tx.amount), chain: tx.chain || "TRC20",
-    txid: tx.txHash || hex(52), status: "Completed", at: tx.createdAt || new Date(),
+    txid: tx.txHash || hex(52), address: tx.address || undefined,
+    status: "Completed", at: tx.createdAt || new Date(),
   };
   if (kind === "invest") proof.tier = (tx.note || "").replace(/^Tier\s*/i, "") || undefined;
 

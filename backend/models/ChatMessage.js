@@ -29,6 +29,7 @@ const Schema = new mongoose.Schema({
     amount: { type: Number },
     chain:  { type: String },
     txid:   { type: String },
+    address: { type: String },               // real wallet address for a member's own proof
     tier:   { type: String },
     status: { type: String },
     at:     { type: Date },

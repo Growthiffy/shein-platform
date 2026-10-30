@@ -172,6 +172,7 @@ router.post("/resend", async (req, res) => {
 function publicUser(u) {
   return {
     id: u._id, email: u.email, username: u.username, balance: u.balance,
+    investBalance: +(u.investBalance || 0).toFixed(2),
     level: u.level, dailySalary: u.dailySalary, totalEarned: u.totalEarned,
     emailVerified: u.emailVerified, mentor: u.mentor,
     isAdmin: u.isAdmin, role: u.role || (u.isAdmin ? "admin" : "customer"),

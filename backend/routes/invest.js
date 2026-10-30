@@ -45,7 +45,7 @@ const WEEK_MS = 7 * 24 * 3600 * 1000;
 // Live summary of the member's active investment.
 router.get("/summary", auth, async (req, res) => {
   const inv = req.user.investment;
-  if (!inv?.amount) return res.json({ active: false });
+  if (!inv?.amount) return res.json({ active: false, investBalance: +(req.user.investBalance || 0).toFixed(2) });
   const tier = INVEST_TIERS.find(t => t.level === inv.tier) || {};
   const now = Date.now();
   const started = inv.startedAt ? new Date(inv.startedAt).getTime() : now;
@@ -65,6 +65,7 @@ router.get("/summary", auth, async (req, res) => {
     nextPayoutAt: new Date(lastPayout + WEEK_MS),
     unlocked: !inv.lockUntil || new Date(inv.lockUntil).getTime() <= now,
     totalPaid: +(paidAgg[0]?.total || 0).toFixed(2),
+    investBalance: +(req.user.investBalance || 0).toFixed(2),
   });
 });
 
@@ -79,14 +80,29 @@ router.post("/release", auth, async (req, res) => {
   const updated = await User.findOneAndUpdate(
     { _id: req.user._id, "investment.amount": { $gt: 0 }, $or: [{ "investment.lockUntil": null }, { "investment.lockUntil": { $lte: now } }] },
     [
-      { $set: { balance: { $round: [{ $add: ["$balance", "$investment.amount"] }, 2] } } },
+      { $set: { investBalance: { $round: [{ $add: [{ $ifNull: ["$investBalance", 0] }, "$investment.amount"] }, 2] } } },
       { $set: { investment: { tier: 0, amount: 0, startedAt: null, lockUntil: null, lastPayoutAt: null } } },
     ],
     { new: true }
   );
   if (!updated) return res.status(400).json({ error: "no active investment" });
-  await Transaction.create({ user: req.user._id, type: "invest_release", amount: amt, note: "principal returned" });
-  res.json({ balance: +Number(updated.balance).toFixed(2) });
+  await Transaction.create({ user: req.user._id, type: "invest_release", amount: amt, note: "principal returned to investment wallet" });
+  res.json({ investBalance: +Number(updated.investBalance).toFixed(2) });
+});
+
+// Move funds from the investment wallet into the analysis balance (so released
+// principal + payouts can be reinvested or withdrawn via the main wallet).
+router.post("/transfer", auth, async (req, res) => {
+  const amt = Number(req.body?.amount);
+  if (!Number.isFinite(amt) || amt <= 0) return res.status(400).json({ error: "bad amount" });
+  const updated = await User.findOneAndUpdate(
+    { _id: req.user._id, investBalance: { $gte: amt } },
+    { $inc: { investBalance: -amt, balance: amt } },
+    { new: true }
+  );
+  if (!updated) return res.status(400).json({ error: "insufficient investment balance" });
+  await Transaction.create({ user: req.user._id, type: "adjustment", amount: amt, note: "transfer investment wallet to analysis balance" });
+  res.json({ balance: +Number(updated.balance).toFixed(2), investBalance: +Number(updated.investBalance).toFixed(2) });
 });
 
 module.exports = router;

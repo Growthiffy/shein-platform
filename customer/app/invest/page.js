@@ -42,11 +42,18 @@ function Body() {
   }
   async function release() {
     setErr("");
-    try { await api("/api/invest/release", { method: "POST" }); await Promise.all([refresh(), loadAll()]); }
+    try { await api("/api/invest/release", { method: "POST" }); await Promise.all([refresh(), loadAll()]); toast({ text: "Principal returned to investment wallet", type: "success" }); }
+    catch (e) { setErr(e.message); }
+  }
+  async function transferAll() {
+    const amt = Number(summary?.investBalance || 0);
+    if (amt <= 0) return;
+    try { await api("/api/invest/transfer", { method: "POST", body: { amount: amt } }); await Promise.all([refresh(), loadAll()]); toast({ text: `$${amt.toLocaleString()} moved to analysis balance`, type: "success" }); }
     catch (e) { setErr(e.message); }
   }
 
   const active = summary?.active;
+  const investBal = Number(summary?.investBalance || me.investBalance || 0);
   const selTier = tiers.find(t => t.level === tier);
   const projWeekly = selTier && amount ? +(Number(amount) * selTier.weeklyPct / 100).toFixed(2) : 0;
 
@@ -54,6 +61,20 @@ function Body() {
     <div className="page">
       <h1 className="font-display text-3xl md:text-4xl text-gold">Invest</h1>
       <p className="text-cream/70">Lock funds and earn weekly. Lock duration is set by the admin.</p>
+
+      {/* Investment wallet — kept completely separate from the analysis balance.
+          Payouts + released principal land here; move to analysis to withdraw/reinvest. */}
+      <div className="mt-6 card p-5 flex flex-wrap items-center justify-between gap-3 border-emerald-500/30">
+        <div>
+          <div className="label">Investment Wallet</div>
+          <div className="text-3xl font-display text-emerald-500 mt-1">${investBal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+          <div className="text-xs text-cream/45 mt-1">Separate from your analysis balance (${Number(me.balance || 0).toLocaleString()}).</div>
+        </div>
+        <div className="flex gap-2">
+          <button className="btn-outline" onClick={transferAll} disabled={investBal <= 0}>Move to analysis balance</button>
+          <a href="/wallet/withdraw?source=invest" className="btn-gold">Withdraw</a>
+        </div>
+      </div>
 
       <div className="mt-6 card overflow-hidden">
         <div className="overflow-x-auto">

@@ -8,7 +8,8 @@ const UserSchema = new mongoose.Schema({
   verifyCode:   { type: String },
   verifyExpires:{ type: Date },
 
-  balance:      { type: Number, default: 0 },     // live wallet balance
+  balance:      { type: Number, default: 0 },     // ANALYSIS wallet: deposits, commissions, salary, combo, withdrawals
+  investBalance:{ type: Number, default: 0 },      // INVESTMENT wallet: invest payouts + released principal (kept separate from analysis)
   rewardCredit: { type: Number, default: 20 },    // signup reward (non-withdrawable until criteria met)
   level:        { type: String, default: "beginner" },
   dailySalary:  { type: Number, default: 230 },

@@ -209,6 +209,8 @@ function ProofCard({ proof }) {
   const at = proof.at ? new Date(proof.at) : null;
   const tx = String(proof.txid || "");
   const txShort = tx.length > 16 ? `${tx.slice(0, 8)}…${tx.slice(-6)}` : tx;
+  const ad = String(proof.address || "");
+  const adShort = ad.length > 16 ? `${ad.slice(0, 8)}…${ad.slice(-6)}` : ad;
   return (
     <div className="mt-2 w-full max-w-[300px] rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-emerald-500/20 bg-emerald-500/[0.08]">
@@ -220,6 +222,7 @@ function ProofCard({ proof }) {
         <Row k="Status" v={<span className="text-emerald-500">Completed</span>} />
         {proof.tier && <Row k="Plan" v={proof.tier} />}
         {proof.chain && <Row k="Network" v={proof.chain} />}
+        {adShort && <Row k="Wallet" v={<span className="font-mono text-[11px]">{adShort}</span>} />}
         {txShort && <Row k="TxID" v={<span className="font-mono text-[11px]">{txShort}</span>} />}
         {at && <Row k="Date" v={at.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })} />}
       </div>

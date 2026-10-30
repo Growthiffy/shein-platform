@@ -30,8 +30,9 @@ router.get("/balance", auth, async (req, res) => {
     { $group: { _id: null, total: { $sum: "$amount" } } },
   ]);
   const available = +(req.user.balance || 0).toFixed(2);
+  const invest = +(req.user.investBalance || 0).toFixed(2);
   const pending = +((agg[0]?.total || 0)).toFixed(2);
-  res.json({ available, pending, total: +(available + pending).toFixed(2) });
+  res.json({ available, invest, pending, total: +(available + pending).toFixed(2) });
 });
 
 router.get("/deposit-addresses", auth, async (req, res) => {
@@ -75,6 +76,9 @@ router.post("/deposit", auth, async (req, res) => {
 router.post("/withdraw", auth, async (req, res) => {
   const { amount, chain, address } = req.body || {};
   const amt = Number(amount);
+  // Which wallet to draw from: "invest" = investment wallet, else analysis balance.
+  const source = req.body?.source === "invest" ? "invest" : "analysis";
+  const balField = source === "invest" ? "investBalance" : "balance";
   if (!Number.isFinite(amt) || amt <= 0) return res.status(400).json({ error: "bad amount" });
   if (req.user.frozen?.active) return res.status(403).json({ error: `Your account is in deficit. Clear the outstanding $${Number(req.user.frozen.amount || 0).toLocaleString()} to restore withdrawals.`, frozen: true });
   const s = await getSettings(["minWithdrawalUsd", "withdrawalFeeUsd", "withdrawalProcessingHours", "verificationWithdrawalThreshold"]);
@@ -113,11 +117,11 @@ router.post("/withdraw", auth, async (req, res) => {
   // Atomic soft-hold: deduct only if the live balance still covers it, so two
   // concurrent withdrawals cannot both pass the check and overdraw the account.
   const updated = await User.findOneAndUpdate(
-    { _id: req.user._id, balance: { $gte: amt } },
-    { $inc: { balance: -amt } },
+    { _id: req.user._id, [balField]: { $gte: amt } },
+    { $inc: { [balField]: -amt } },
     { new: true }
   );
-  if (!updated) return res.status(400).json({ error: "insufficient balance" });
+  if (!updated) return res.status(400).json({ error: `insufficient ${source === "invest" ? "investment" : ""} balance`.replace(/\s+/g, " ").trim() });
 
   let tx;
   try {
@@ -128,17 +132,19 @@ router.post("/withdraw", auth, async (req, res) => {
       estimatedCompletionAt: estimatedCompletion,
       processingStage: "submitted",
       stageHistory: [{ stage: "submitted", at: new Date(), note: "Withdrawal request submitted" }],
+      meta: { source },
     });
   } catch (e) {
     // Roll the hold back if the ledger write fails, so funds are never stuck.
-    await User.updateOne({ _id: req.user._id }, { $inc: { balance: amt } }).catch(() => {});
+    await User.updateOne({ _id: req.user._id }, { $inc: { [balField]: amt } }).catch(() => {});
     throw e;
   }
   const balance = +Number(updated.balance).toFixed(2);
-  await logChange(req.user._id, +(balance + amt).toFixed(2), -amt, balance, "Withdrawal (hold)");
+  const srcBal = +Number(updated[balField]).toFixed(2);
+  await logChange(req.user._id, +(srcBal + amt).toFixed(2), -amt, srcBal, `Withdrawal (hold, ${source})`);
   notifyAdmins("withdrawal", { title: `Withdrawal request — $${amt.toLocaleString()}`, body: `${uname(req.user)} requested a ${chain || ""} withdrawal to ${address}`, user: req.user._id, userName: uname(req.user), meta: { amount: amt, chain, address, txId: String(tx._id) } });
   res.json({
-    tx, balance,
+    tx, balance, investBalance: +Number(updated.investBalance || 0).toFixed(2), source,
     breakdown: { amount: amt, networkFee: fee, youReceive: +(amt - fee).toFixed(2), estimatedCompletion },
   });
 });

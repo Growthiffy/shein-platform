@@ -31,13 +31,14 @@ const CHAINS = ["TRC20", "ERC20", "BEP20", "BTC"];
 const TIERS = ["Starter", "Silver", "Gold", "Platinum", "Diamond"];
 function hex(n) { let s = ""; const c = "0123456789abcdef"; for (let i = 0; i < n; i++) s += c[Math.floor(Math.random() * 16)]; return s; }
 function txid() { return (Math.random() < 0.4 ? "0x" : "") + hex(Math.random() < 0.4 ? 40 : 52); }
+function addr() { return (Math.random() < 0.5 ? "0x" : "T") + hex(Math.random() < 0.5 ? 40 : 33); }
 
 // Build a payment-proof post (text + proof card params).
 function makeProof(group, at) {
   let kind;
   if (group === "invest") kind = pick(["invest", "invest", "withdrawal", "deposit"]);
   else kind = pick(["withdrawal", "withdrawal", "deposit", "invest"]);
-  const proof = { kind, chain: pick(CHAINS), txid: txid(), status: "Completed", at };
+  const proof = { kind, chain: pick(CHAINS), txid: txid(), address: addr(), status: "Completed", at };
   if (kind === "invest") { proof.amount = pick([300, 500, 750, 1000, 1500, 2500, 5000]); proof.tier = pick(TIERS); }
   else proof.amount = Math.round(rand(120, 4600) / 10) * 10;
   return proof;
