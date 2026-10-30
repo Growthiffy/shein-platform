@@ -9,6 +9,7 @@ const Persona = require("../models/Persona");
 const ChatState = require("../models/ChatState");
 const ChatTyping = require("../models/ChatTyping");
 const { getSettings } = require("../utils/settings");
+const { generate, aiEnabled } = require("./ai");
 const LINES = require("../data/persona_lines.json");
 const SCRIPTS = require("../data/persona_scripts.json");
 
@@ -50,10 +51,10 @@ function sample(arr, k) {
 
 // Gaps (ms)
 const GAP = {
-  within:   () => rand(18 * S, 55 * S),   // between lines of a live exchange
-  standalone: () => rand(60 * S, 180 * S),
-  afterScript: () => rand(60 * S, 180 * S),
-  quiet:    () => rand(2 * M, 5 * M),
+  within:   () => rand(12 * S, 35 * S),   // between lines of a live exchange
+  standalone: () => rand(30 * S, 90 * S),
+  afterScript: () => rand(30 * S, 90 * S),
+  quiet:    () => rand(60 * S, 150 * S),
   seed:     () => rand(10 * S, 40 * S),
 };
 
@@ -157,10 +158,67 @@ function baseDoc(group, sp, text, mentions, at) {
   };
 }
 
+// Friendly replies used when AI is unavailable. {n} = the member's name.
+const USER_REPLIES = [
+  "hey @{n}, welcome! how's your day going?",
+  "@{n} hi! you doing the analyst cycle today?",
+  "yo @{n} 👋 good to see a new face",
+  "@{n} hey hey, what tier are you on?",
+  "hi @{n}! ask away if you need anything, we're friendly here",
+  "@{n} welcome in, the latest collection items are paying well today",
+  "hey @{n}, just finished my cycle, how about you?",
+  "@{n} 👋 morning/evening wherever you are lol",
+];
+const hashStr = s => { let h = 0; for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0; return h >>> 0; };
+
+// When a real member's message is the latest in the room, a persona answers it
+// after a short human-like delay (8-40s, deterministic per message) so members
+// feel heard. Returns true if it posted.
+async function maybeReplyToUser(group, personas) {
+  const last = await ChatMessage.findOne({ group }).sort({ createdAt: -1 });
+  if (!last || last.authorType !== "user") return false;
+
+  const delayMs = (8 + (hashStr(String(last._id)) % 33)) * 1000;
+  if (Date.now() - new Date(last.createdAt).getTime() < delayMs) return false;
+
+  // Recent context so an AI reply can follow the actual conversation.
+  const recent = await ChatMessage.find({ group }).sort({ createdAt: -1 }).limit(6);
+  const sp = personas[hashStr(String(last._id) + "p") % personas.length];
+  const name = last.authorName || "there";
+
+  let text = null;
+  if (aiEnabled()) {
+    const convo = recent.reverse().map(m => `${m.authorName}: ${String(m.text).slice(0, 160)}`).join("\n");
+    text = await generate(
+      `You are ${sp.name}, a casual member of a product-analyst/investing community chat. Recent messages:\n${convo}\n\nReply to ${name}'s last message in ONE short, friendly, informal line (max 20 words, lowercase ok, no hashtags). Start with @${name}.`,
+      { maxTokens: 50, temperature: 0.9, cacheKey: `reply:${last._id}` }
+    );
+  }
+  if (!text) text = USER_REPLIES[hashStr(String(last._id)) % USER_REPLIES.length].replace(/\{n\}/g, name);
+
+  // Claim: only post if the member's message is still the latest (no double reply).
+  const stillLast = await ChatMessage.findOne({ group }).sort({ createdAt: -1 }).select("_id");
+  if (!stillLast || String(stillLast._id) !== String(last._id)) return false;
+
+  await ChatMessage.create({
+    group, authorType: "persona", authorName: sp.name, authorAvatar: sp.avatar,
+    text, canReply: true, mentions: [name],
+    replyTo: { id: last._id, authorName: last.authorName, text: String(last.text || "").slice(0, 140) },
+    reactions: [],
+  });
+  return true;
+}
+
 async function maybePost(group) {
   if (group !== "daily" && group !== "invest") return;
   await seedBacklog(group).catch(() => {}); // one-time populate so the room is never empty
   if (!(await withinActiveHours())) return; // live chatter only during active hours
+
+  // Members come first: answer a waiting member before ambient chatter.
+  {
+    const ps = await Persona.find({ active: true, group: { $in: [group, "both"] } });
+    if (ps.length && await maybeReplyToUser(group, ps).catch(() => false)) return;
+  }
 
   const personas = await Persona.find({ active: true, group: { $in: [group, "both"] } });
   if (!personas.length) return;

@@ -14,9 +14,10 @@ const DEFAULTS = {
   activityFeedEnabled: true,
   platformMemberCount: 12847,
 
-  // Persona active hours (server timezone, 0-23)
-  personaActiveHoursStart: 7,
-  personaActiveHoursEnd: 23,
+  // Persona active hours (server timezone). Default 0-24 = always active so the
+  // community never goes silent; admin can narrow to simulate quiet hours.
+  personaActiveHoursStart: 0,
+  personaActiveHoursEnd: 24,
 
   // Company identity (footer + legal pages)
   companyName: "Shein Global Ltd",
