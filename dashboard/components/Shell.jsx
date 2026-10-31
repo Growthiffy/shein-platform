@@ -62,7 +62,7 @@ export default function Shell({ children }) {
     <main className="min-h-screen flex bg-ink text-cream">
       <aside className="w-60 shrink-0 border-r border-gold/10 p-4 flex flex-col">
         <div className="flex items-center justify-between mb-5 px-2">
-          <span className="font-display text-xl text-gold tracking-widest">SHEIN · Admin</span>
+          <span className="font-display text-xl text-gold">SHEIN · Admin</span>
           <NotifBell />
         </div>
         <nav className="space-y-0.5 flex-1">

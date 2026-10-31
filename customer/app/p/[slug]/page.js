@@ -16,7 +16,7 @@ export default function CmsPage() {
   return (
     <main className="min-h-screen bg-ink text-cream">
       <div className="mx-auto max-w-3xl px-5 py-10">
-        <Link href="/" className="font-display text-2xl tracking-widest text-gold">SHEIN</Link>
+        <Link href="/" className="font-display text-2xl text-gold">SHEIN</Link>
         {page === undefined && <div className="mt-8 skeleton h-64 w-full rounded-xl" />}
         {page === null && <div className="mt-10 text-cream/60">Page not found.</div>}
         {page && (

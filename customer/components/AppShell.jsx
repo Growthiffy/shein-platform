@@ -117,7 +117,7 @@ export default function AppShell({ children }) {
         {/* top bar */}
         <header className="sticky top-0 z-40 border-b border-gold/10 bg-ink/85 backdrop-blur">
           <div className="mx-auto max-w-[88rem] px-4 md:px-6 h-16 flex items-center justify-between gap-4">
-            <Link href="/dashboard" className="font-display text-2xl tracking-widest text-gold">SHEIN</Link>
+            <Link href="/dashboard" className="font-display text-2xl text-gold">SHEIN</Link>
 
             <nav className="hidden md:flex items-center gap-1">
               {NAV.map(n => {

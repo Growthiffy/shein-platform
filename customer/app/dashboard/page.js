@@ -24,9 +24,9 @@ function Body() {
   const { me } = useMe();
   const [welcome, setWelcome] = useState(() => {
     if (typeof window === "undefined") return false;
-    try { return !sessionStorage.getItem("shein_welcome_seen"); } catch { return false; }
+    try { return !localStorage.getItem("shein_welcome_seen"); } catch { return false; }
   });
-  function dismiss() { setWelcome(false); try { sessionStorage.setItem("shein_welcome_seen", "1"); } catch {} }
+  function dismiss() { setWelcome(false); try { localStorage.setItem("shein_welcome_seen", "1"); } catch {} }
 
   return (
     <div className="page">

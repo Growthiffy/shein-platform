@@ -20,7 +20,7 @@ export default function Login() {
   }
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-ink px-4" style={{backgroundImage:"radial-gradient(ellipse at top, rgba(201,162,74,.1), transparent 60%)"}}>
-      <div className="font-display text-3xl tracking-widest text-gold mb-6">SHEIN · Admin</div>
+      <div className="font-display text-3xl text-gold mb-6">SHEIN · Admin</div>
       <form onSubmit={submit} className="card p-8 w-full max-w-sm space-y-3">
         <label className="label block">Email<input placeholder="admin@shein.local" value={email} onChange={e => setEmail(e.target.value)} className="w-full mt-1" /></label>
         <label className="label block">Password

@@ -28,7 +28,7 @@ export default function Landing() {
       ))}
 
       <nav className="relative z-10 flex items-center justify-between px-6 md:px-8 py-6">
-        <div className="font-display text-3xl tracking-widest text-white">SHEIN</div>
+        <div className="font-display text-3xl text-white">SHEIN</div>
         <div className="flex items-center gap-4">
           <span className="hidden sm:block text-xs tracking-[0.3em] text-white/70">LUXURY · ANALYSIS · GROWTH</span>
           <Link href="/auth" className="inline-flex items-center rounded-lg border border-white/70 text-white px-4 py-2 text-sm font-semibold hover:bg-white hover:text-black transition">Sign In</Link>
