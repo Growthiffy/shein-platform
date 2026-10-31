@@ -49,7 +49,7 @@ export default function Products() {
         <h1 className="text-2xl text-gold">Products</h1>
         <button className="btn" disabled={busy} aria-expanded={showAdd} aria-controls="add-product-form" onClick={() => { setShowAdd(true); setEditId(null); setError(""); }}>Add new product</button>
       </div>
-      {error && <p role="alert" className="mb-4 text-red-400">{error}</p>}
+      {error && <p role="alert" className="mb-4 text-red-600">{error}</p>}
       <datalist id="product-brands">{BRANDS.map(b => <option key={b} value={b} />)}</datalist>
       <datalist id="product-names">{PRODUCT_NAMES.map(n => <option key={n} value={n} />)}</datalist>
       {showAdd && <fieldset id="add-product-form" disabled={busy} className="card p-4 mb-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2 items-end">

@@ -51,7 +51,7 @@ export default function Support() {
         <h1 className="text-2xl text-gold font-display">Support</h1>
         <div className="flex gap-1">
           {TABS.map(([v, t]) => (
-            <button key={v} onClick={() => setTab(v)} className={`px-3 py-1.5 rounded-lg text-sm ${tab === v ? "bg-gold/15 text-gold" : "text-cream/70 hover:bg-white/5"}`}>{t}</button>
+            <button key={v} onClick={() => setTab(v)} className={`px-3 py-1.5 rounded-lg text-sm ${tab === v ? "bg-gold/15 text-gold" : "text-cream/70 hover:bg-black/[0.04]"}`}>{t}</button>
           ))}
         </div>
       </div>
@@ -81,7 +81,7 @@ export default function Support() {
                 {ended
                   ? <button className="btn-ghost text-xs" onClick={reopen}><RotateCcw size={13} /> Reopen</button>
                   : <button className="btn-ghost text-xs" onClick={endChat}><CheckCircle2 size={13} /> End chat</button>}
-                <button className={`btn-ghost text-xs ${confirmDel ? "!border-red-400 !text-red-400" : ""}`} onClick={del}>
+                <button className={`btn-ghost text-xs ${confirmDel ? "!border-red-600 !text-red-600" : ""}`} onClick={del}>
                   <Trash2 size={13} /> {confirmDel ? "Tap to confirm" : "Delete"}
                 </button>
               </div>

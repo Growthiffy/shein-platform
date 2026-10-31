@@ -31,7 +31,7 @@ export default function Content() {
         <div className="card p-2 space-y-1 h-max">
           <button className="btn w-full text-sm mb-1" onClick={reset}>+ New page</button>
           {items.map(p => (
-            <button key={p._id} onClick={() => edit(p)} className={`w-full text-left rounded px-3 py-2 ${sel?._id === p._id ? "bg-gold/15" : "hover:bg-white/5"}`}>
+            <button key={p._id} onClick={() => edit(p)} className={`w-full text-left rounded px-3 py-2 ${sel?._id === p._id ? "bg-gold/15" : "hover:bg-black/[0.04]"}`}>
               <div className="text-cream">{p.title}</div>
               <div className="text-xs text-cream/45">/{p.slug} {p.active === false && "· hidden"}</div>
             </button>

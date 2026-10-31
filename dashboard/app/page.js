@@ -32,7 +32,7 @@ export default function Login() {
             </button>
           </div>
         </label>
-        {err && <div className="text-red-400 text-sm">{err}</div>}
+        {err && <div className="text-red-600 text-sm">{err}</div>}
         <button className="btn w-full mt-1">Sign In</button>
       </form>
     </main>

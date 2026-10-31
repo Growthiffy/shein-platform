@@ -102,7 +102,7 @@ function Body() {
           <div className="mt-3 divide-y divide-black/[0.06] max-h-56 overflow-y-auto">
             {logins.map(l => (
               <div key={l.id} className="py-2.5 text-sm">
-                <div className="flex justify-between"><span className="text-cream">{l.ip || "unknown IP"}</span><span className="text-cream/40">{new Date(l.at).toLocaleString()}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-cream min-w-0 truncate">{l.ip || "unknown IP"}</span><span className="text-cream/40 shrink-0">{new Date(l.at).toLocaleString()}</span></div>
                 <div className="text-xs text-cream/40 truncate">{l.userAgent || ""}</div>
               </div>
             ))}

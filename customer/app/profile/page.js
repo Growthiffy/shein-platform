@@ -84,7 +84,7 @@ function Body() {
   function copyCode() { navigator.clipboard?.writeText(me.referralCode || ""); setCopied(true); setTimeout(() => setCopied(false), 1500); }
 
   const cred = me.creditScore ?? 100;
-  const credTone = cred >= 80 ? "text-emerald-400" : cred >= 50 ? "text-amber-400" : "text-red-400";
+  const credTone = cred >= 80 ? "text-emerald-600" : cred >= 50 ? "text-amber-600" : "text-red-600";
 
   return (
     <div className="page space-y-6">

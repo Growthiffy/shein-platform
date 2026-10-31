@@ -61,7 +61,7 @@ export default function Mentors() {
                   </select>
                 </td>
                 <td className="p-2">
-                  <button onClick={() => toggleActive(m)} className={`text-xs px-2 py-1 rounded ${m.active ? "bg-emerald-500/20 text-emerald-400" : "bg-white/10 text-cream/50"}`}>{m.active ? "Active" : "Hidden"}</button>
+                  <button onClick={() => toggleActive(m)} className={`text-xs px-2 py-1 rounded ${m.active ? "bg-emerald-100 text-emerald-700" : "bg-black/[0.06] text-cream/50"}`}>{m.active ? "Active" : "Hidden"}</button>
                 </td>
                 <td className="p-2 text-right"><button className="btn-ghost" onClick={() => del(m)}>Delete</button></td>
               </tr>

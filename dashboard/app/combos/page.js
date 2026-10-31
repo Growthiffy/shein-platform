@@ -40,7 +40,7 @@ export default function Combos() {
           {!!members.length && (
             <select value={f.userId} onChange={e => setF({ ...f, userId: e.target.value })} className="w-full text-sm">
               <option value="">— select member —</option>
-              {members.map(m => <option key={m._id} value={m._id}>{m.username || m.email} (#{m.accountNumber ?? "?"}) · ${(m.balance ?? 0).toFixed(0)}</option>)}
+              {members.map(m => <option key={m._id} value={m._id}>{m.username || m.email}{m.accountNumber ? ` (#${m.accountNumber})` : ""} · ${(m.balance ?? 0).toFixed(0)}</option>)}
             </select>
           )}
           <label className="text-sm block">Trigger at order # (today)<input type="number" min={1} className="w-full mt-1" value={f.comboAt} onChange={e => setF({ ...f, comboAt: e.target.value })} /></label>

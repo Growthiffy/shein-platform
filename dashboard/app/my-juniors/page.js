@@ -119,7 +119,7 @@ export default function MyJuniors() {
           const on = String(m._id) === String(activeMentor);
           return (
             <button key={m._id} onClick={() => { setActiveMentor(String(m._id)); setActive(null); setMsgs([]); setGroup(null); }}
-              className={`flex items-center gap-2.5 rounded-xl px-3 py-2 border transition ${on ? "border-gold bg-gold/12" : "border-line hover:bg-white/5"}`}>
+              className={`flex items-center gap-2.5 rounded-xl px-3 py-2 border transition ${on ? "border-gold bg-gold/10" : "border-line hover:bg-black/[0.04]"}`}>
               {m.avatar ? <img src={m.avatar} alt="" className="h-9 w-9 rounded-full object-cover" /> : <span className="h-9 w-9 rounded-full bg-gold/20 grid place-items-center text-gold font-semibold">{(m.name || "?").charAt(0)}</span>}
               <span className="text-left">
                 <span className={`block text-sm font-medium ${on ? "text-gold" : "text-cream"}`}>{m.name}</span>
@@ -144,12 +144,12 @@ export default function MyJuniors() {
               const on = active?._id === u._id;
               return (
                 <button key={u._id} onClick={() => openRoom(u)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 border-b border-line/60 text-left transition ${on ? "bg-gold/10" : "hover:bg-white/[0.03]"}`}>
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 border-b border-line/60 text-left transition ${on ? "bg-gold/10" : "hover:bg-black/[0.03]"}`}>
                   {u.avatar ? <img src={u.avatar} alt="" className="h-11 w-11 rounded-full object-cover shrink-0" /> : <span className="h-11 w-11 rounded-full bg-gold2/20 grid place-items-center text-gold2 font-semibold shrink-0">{(u.name || "?").charAt(0).toUpperCase()}</span>}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-cream font-medium truncate">{u.name}</span>
-                      {u.lastAt && <span className={`text-[10px] shrink-0 ${u.unread ? "text-emerald-400" : "text-cream/35"}`}>{timeShort(u.lastAt)}</span>}
+                      {u.lastAt && <span className={`text-[10px] shrink-0 ${u.unread ? "text-emerald-600" : "text-cream/35"}`}>{timeShort(u.lastAt)}</span>}
                     </div>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs text-cream/45 truncate">{u.lastFromMember ? "" : "✓ "}{u.lastText || "no messages yet"}</span>
@@ -184,16 +184,16 @@ export default function MyJuniors() {
                     <div key={m._id}>
                       {showDay && <div className="flex justify-center my-2"><span className="text-[10px] text-cream/40 bg-ink2 rounded-full px-2.5 py-0.5">{dayLabel(m.createdAt)}</span></div>}
                       <div className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                        <div className={`px-2.5 py-1.5 rounded-lg max-w-[72%] shadow-sm ${mine ? "bg-emerald-600/25 border border-emerald-500/20" : "bg-white/[0.05] border border-line"}`}>
+                        <div className={`px-2.5 py-1.5 rounded-lg max-w-[72%] shadow-sm ${mine ? "bg-emerald-100 border border-emerald-200" : "bg-black/[0.04] border border-line"}`}>
                           {!mine && m.authorName && <div className="text-[11px] text-gold2 font-medium mb-0.5">{m.authorName}</div>}
                           {m.replyTo?.text && <div className="mb-1 border-l-2 border-gold/50 pl-2 text-[11px] text-cream/50 truncate">{m.replyTo.authorName}: {m.replyTo.text}</div>}
                           {m.image && (m.image.startsWith("data:application/pdf")
                             ? <a href={m.image} download={m.fileName || "file.pdf"} className="inline-flex items-center gap-1 underline text-xs text-gold">📄 {m.fileName || "document.pdf"}</a>
                             : <img src={m.image} alt={m.fileName || ""} className="max-h-52 rounded-md" />)}
                           {m.text && <div className="whitespace-pre-wrap break-words text-sm text-cream/90">{m.text}</div>}
-                          <div className={`flex items-center gap-1 justify-end text-[10px] mt-0.5 ${mine ? "text-emerald-300/70" : "text-cream/35"}`}>
+                          <div className={`flex items-center gap-1 justify-end text-[10px] mt-0.5 ${mine ? "text-emerald-800/60" : "text-cream/35"}`}>
                             {timeShort(m.createdAt)}
-                            {mine && <CheckCheck size={12} className="text-emerald-300/80" />}
+                            {mine && <CheckCheck size={12} className="text-emerald-600" />}
                           </div>
                         </div>
                       </div>

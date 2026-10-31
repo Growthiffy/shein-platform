@@ -61,7 +61,7 @@ export default function NotifBell() {
 
   return (
     <div className="relative" ref={ref}>
-      <button onClick={toggleOpen} className="relative grid h-9 w-9 place-items-center rounded-lg hover:bg-white/5 text-cream/80">
+      <button onClick={toggleOpen} className="relative grid h-9 w-9 place-items-center rounded-lg hover:bg-black/[0.04] text-cream/80">
         <Bell size={18} />
         {unread > 0 && <span className="absolute -top-0.5 -right-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-red-500 text-white text-[10px] px-1">{unread > 99 ? "99+" : unread}</span>}
       </button>
@@ -78,7 +78,7 @@ export default function NotifBell() {
           {tab === "feed" ? (
             <div className="max-h-96 overflow-y-auto divide-y divide-line">
               {items.map(it => (
-                <button key={it._id} onClick={() => go(it)} className={`w-full text-left px-3 py-2.5 hover:bg-white/5 ${it.read ? "" : "bg-gold/[0.06]"}`}>
+                <button key={it._id} onClick={() => go(it)} className={`w-full text-left px-3 py-2.5 hover:bg-black/[0.04] ${it.read ? "" : "bg-gold/[0.06]"}`}>
                   <div className="flex items-start gap-2">
                     <span className="text-base leading-none">{ICON[it.type] || "🔔"}</span>
                     <div className="min-w-0 flex-1">
@@ -95,7 +95,7 @@ export default function NotifBell() {
             <div className="max-h-96 overflow-y-auto p-2">
               <div className="text-[11px] text-cream/50 px-1 pb-1">Muted types won't create notifications.</div>
               {cfg.types.map(t => (
-                <label key={t} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-white/5 text-sm cursor-pointer">
+                <label key={t} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-black/[0.04] text-sm cursor-pointer">
                   <span className="flex items-center gap-2 text-cream/80">{ICON[t] || "🔔"} <span className="capitalize">{t}</span></span>
                   <input type="checkbox" checked={!cfg.mutes[t]} onChange={() => toggleMute(t)} title="on = notify" />
                 </label>

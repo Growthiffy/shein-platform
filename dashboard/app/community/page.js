@@ -86,7 +86,7 @@ export default function CommunityAdmin() {
   function onKey(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); post(); } }
   async function del(id) { if (!confirm("Delete this message?")) return; await api(`/api/admin/chat/message/${id}`, { method: "DELETE" }); loadMessages(group, false); }
 
-  const roomTabClass = (on) => `px-3 py-1.5 rounded-lg text-sm font-medium transition ${on ? "bg-gold text-ink" : "bg-white/5 text-cream/70 hover:bg-white/10"}`;
+  const roomTabClass = (on) => `px-3 py-1.5 rounded-lg text-sm font-medium transition ${on ? "bg-gold text-ink" : "bg-black/[0.04] text-cream/70 hover:bg-black/[0.06]"}`;
 
   return (
     <Shell>
@@ -103,9 +103,9 @@ export default function CommunityAdmin() {
           <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
             {members.map(m => (
               <button key={m._id} onClick={() => pickMember(m._id)}
-                className={`w-full text-left rounded-lg px-2.5 py-2 transition ${String(memberId) === String(m._id) ? "bg-gold/15" : "hover:bg-white/5"}`}>
+                className={`w-full text-left rounded-lg px-2.5 py-2 transition ${String(memberId) === String(m._id) ? "bg-gold/15" : "hover:bg-black/[0.04]"}`}>
                 <div className="text-cream text-sm font-medium truncate">{mName(m)}</div>
-                <div className="text-[11px] text-cream/40">#{m.accountNumber ?? "?"}</div>
+                <div className="text-[11px] text-cream/40">{m.accountNumber ? `#${m.accountNumber}` : "unverified"}</div>
               </button>
             ))}
             {!members.length && <div className="text-cream/50 text-sm p-2">No members.</div>}

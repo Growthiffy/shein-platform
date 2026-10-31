@@ -340,7 +340,7 @@ function ComboCard({ next, onComplete, busy, err }) {
           ) : (
             <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-500">Deposit received — your order will settle and credit your balance + ${Number(next.commission).toLocaleString()} commission once confirmed.</div>
           )}
-          {err && <div className="text-red-400 text-sm mt-2">{err}</div>}
+          {err && <div className="text-red-600 text-sm mt-2">{err}</div>}
         </div>
       </div>
     </div>

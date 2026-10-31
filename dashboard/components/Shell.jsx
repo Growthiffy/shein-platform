@@ -70,7 +70,7 @@ export default function Shell({ children }) {
             const Icon = n.icon; const on = p === n.href || (n.href !== "/overview" && p.startsWith(n.href));
             return (
               <Link key={n.href} href={n.href}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition ${on ? "bg-gold/15 text-gold" : "text-cream/75 hover:bg-white/5"}`}>
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition ${on ? "bg-gold/15 text-gold" : "text-cream/75 hover:bg-black/[0.04]"}`}>
                 <Icon size={16} /> {n.label}
               </Link>
             );

@@ -41,7 +41,7 @@ function Body() {
           <div className="mt-4">
             <div className="label">Invite Link</div>
             <div className="mt-1 flex items-center gap-2 rounded-xl border border-gold/20 px-4 py-3">
-              <span className="truncate text-sm text-cream/70">{link || "—"}</span>
+              <span className="min-w-0 flex-1 truncate text-sm text-cream/70">{link || "—"}</span>
               <button onClick={() => copy(link, "link")} className="btn-outline py-1.5 px-3 text-sm shrink-0">
                 {copied === "link" ? <><Check size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
               </button>
@@ -108,7 +108,7 @@ function Body() {
           {(data?.invited || []).map((u, i) => (
             <div key={i} className="flex items-center justify-between py-3 text-sm">
               <span className="text-cream">{u.name}</span>
-              <span className={u.verified ? "text-emerald-400" : "text-cream/50"}>{u.verified ? "Verified" : "Pending"}</span>
+              <span className={u.verified ? "text-emerald-600" : "text-cream/50"}>{u.verified ? "Verified" : "Pending"}</span>
             </div>
           ))}
           {!data?.invited?.length && <div className="py-6 text-center text-cream/50 text-sm">No invites yet — share your code above.</div>}

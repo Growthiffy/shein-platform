@@ -78,7 +78,7 @@ function SignIn({ onSwitch, onNeedsVerify }) {
       <Input label="Password" value={password} onChange={setPassword} type="password" />
       {twoFA && <Input label="2FA code" value={otp} onChange={setOtp} />}
       {twoFA && !err && <div className="text-cream/60 text-sm">Enter the 6-digit code from your authenticator app.</div>}
-      {err && <div className="text-red-400 text-sm">{err}</div>}
+      {err && <div className="text-red-600 text-sm">{err}</div>}
       <button className="btn-gold w-full" disabled={busy}>{busy ? "..." : (twoFA ? "VERIFY & SIGN IN" : "SIGN IN")}</button>
       <div className="text-center text-sm text-cream/60">
         New here? <button type="button" className="text-gold underline" onClick={onSwitch}>Create account</button>
@@ -106,11 +106,11 @@ function SignUp({ onNeedsVerify, onSwitch, ref0 }) {
   return (
     <form onSubmit={submit} className="space-y-4">
       <h2 className="font-display text-2xl text-gold text-center">Create Account</h2>
-      {ref0 && <div className="text-center text-sm text-emerald-400">Invited with code {ref0} — $20 reward on verify.</div>}
+      {ref0 && <div className="text-center text-sm text-emerald-600">Invited with code {ref0} — $20 reward on verify.</div>}
       <Input label="Real email address" value={email} onChange={setEmail} type="email" />
       <Input label="Password (min 8 chars)" value={password} onChange={setPassword} type="password" />
       <Input label="Referral code (optional)" value={ref} onChange={setRef} required={false} />
-      {err && <div className="text-red-400 text-sm">{err}</div>}
+      {err && <div className="text-red-600 text-sm">{err}</div>}
       <button className="btn-gold w-full" disabled={busy}>{busy ? "..." : "SEND CODE"}</button>
       <div className="text-center text-sm text-cream/60">
         Have an account? <button type="button" className="text-gold underline" onClick={onSwitch}>Sign in</button>
@@ -156,7 +156,7 @@ function Verify({ devCode }) {
       <p className="text-cream/70 text-center text-sm">Code sent to <b>{email}</b></p>
       <Input label="6-digit code" value={code} onChange={setCode} />
       {note && <div className="text-gold/80 text-sm text-center">{note}</div>}
-      {err && <div className="text-red-400 text-sm">{err}</div>}
+      {err && <div className="text-red-600 text-sm">{err}</div>}
       <button className="btn-gold w-full" disabled={busy}>{busy ? "..." : "VERIFY"}</button>
       <div className="text-center text-sm text-cream/60">
         Didn&apos;t get it?{" "}
