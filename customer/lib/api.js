@@ -1,15 +1,40 @@
-const BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:4001";
+// API calls stay same-origin: next.config.mjs rewrites /api/* to the backend.
+// A direct cross-origin call fails with "Failed to fetch" when Vercel challenges
+// the visitor's IP, because the preflight is blocked without CORS headers.
+const CHALLENGE_RELOAD_KEY = "shein_challenge_reload";
+const CHALLENGE_RELOAD_COOLDOWN_MS = 60 * 1000;
 
 function token() {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("shein_token");
 }
 
+// An expired Vercel checkpoint cookie blocks API calls until a page load passes
+// the checkpoint again. Reload at most once per cooldown to prevent a reload loop.
+function reloadForChallenge() {
+  let last = 0;
+  try { last = Number(sessionStorage.getItem(CHALLENGE_RELOAD_KEY)) || 0; } catch {}
+  if (Date.now() - last < CHALLENGE_RELOAD_COOLDOWN_MS) return;
+  try { sessionStorage.setItem(CHALLENGE_RELOAD_KEY, String(Date.now())); } catch {}
+  window.location.reload();
+}
+
 export async function api(path, opts = {}) {
   const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
   const t = token();
   if (t) headers.Authorization = `Bearer ${t}`;
-  const res = await fetch(`${BASE}${path}`, { ...opts, headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
+  let res;
+  try {
+    res = await fetch(path, { ...opts, headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
+  } catch {
+    throw new Error("Can't reach the server. Check your connection and try again.");
+  }
+  if (res.status === 403 && res.headers.get("x-vercel-mitigated") === "challenge") {
+    reloadForChallenge();
+    const err = new Error("Security check needed. Reload the page and try again.");
+    err.status = res.status;
+    throw err;
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const err = new Error(data.error || `HTTP ${res.status}`);
